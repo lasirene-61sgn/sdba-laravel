@@ -1,0 +1,58 @@
+// CUSTOMER LOGIN TEST DATA FOR POSTMAN
+
+// 1. Send OTP to customer (First time login)
+POST /api/customer/send-otp
+Content-Type: application/json
+
+{
+  "mobile": "9876543210"
+}
+
+// 2. Verify OTP
+POST /api/customer/verify-otp
+Content-Type: application/json
+
+{
+  "mobile": "9876543210",
+  "otp": "123456"
+}
+
+// 3. Set password (First time only)
+POST /api/customer/set-password
+Content-Type: application/json
+
+{
+  "customer_id": 1,
+  "password": "password123",
+  "password_confirmation": "password123",
+  "fcm_token": "your_fcm_token_here"
+}
+
+// 4. Login with password (After password is set)
+POST /api/customer/login
+Content-Type: application/json
+
+{
+  "mobile": "9876543210",
+  "password": "password123",
+  "fcm_token": "your_fcm_token_here"
+}
+
+// 5. Login with OTP (Alternative method)
+POST /api/customer/login
+Content-Type: application/json
+
+{
+  "mobile": "9876543210",
+  "otp": "123456",
+  "fcm_token": "your_fcm_token_here"
+}
+
+// 6. Update device token after login (if needed)
+POST /api/customer/update-device-token
+Authorization: Bearer YOUR_ACCESS_TOKEN
+Content-Type: application/json
+
+{
+  "fcm_token": "your_fcm_token_here"
+}

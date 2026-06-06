@@ -1,0 +1,134 @@
+{
+  "info": {
+    "name": "Admin Panel Support API Tests",
+    "description": "Complete test suite for Support CRUD operations"
+  },
+  "item": [
+    {
+      "name": "Support CRUD Operations",
+      "item": [
+        {
+          "name": "Create Support",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"customer_id\": 1,\n  \"support_type_id\": 1,\n  \"support_category_id\": 1,\n  \"subject\": \"Test Support Ticket\",\n  \"description\": \"This is a test support ticket description.\",\n  \"status\": \"open\"\n}"
+            },
+            "url": {
+              "raw": "http://127.0.0.1:8000/api/admin/supports",
+              "protocol": "http",
+              "host": ["127", "0", "0", "1"],
+              "port": "8000",
+              "path": ["api", "admin", "supports"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get All Supports",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "http://127.0.0.1:8000/api/admin/supports",
+              "protocol": "http",
+              "host": ["127", "0", "0", "1"],
+              "port": "8000",
+              "path": ["api", "admin", "supports"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Specific Support",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "http://127.0.0.1:8000/api/admin/supports/{{support_id}}",
+              "protocol": "http",
+              "host": ["127", "0", "0", "1"],
+              "port": "8000",
+              "path": ["api", "admin", "supports", "{{support_id}}"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Update Support",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"customer_id\": 1,\n  \"support_type_id\": 1,\n  \"support_category_id\": 1,\n  \"subject\": \"Updated Support Ticket\",\n  \"description\": \"This is an updated support ticket description.\",\n  \"status\": \"closed\"\n}"
+            },
+            "url": {
+              "raw": "http://127.0.0.1:8000/api/admin/supports/{{support_id}}",
+              "protocol": "http",
+              "host": ["127", "0", "0", "1"],
+              "port": "8000",
+              "path": ["api", "admin", "supports", "{{support_id}}"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Delete Support",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "http://127.0.0.1:8000/api/admin/supports/{{support_id}}",
+              "protocol": "http",
+              "host": ["127", "0", "0", "1"],
+              "port": "8000",
+              "path": ["api", "admin", "supports", "{{support_id}}"]
+            }
+          },
+          "response": []
+        }
+      ]
+    }
+  ]
+}

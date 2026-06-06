@@ -1,0 +1,108 @@
+{
+  "info": {
+    "name": "Customer Business API Test",
+    "_postman_id": "business-api-test",
+    "description": "Postman collection for testing customer business name APIs",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Get Business Names",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          },
+          {
+            "key": "Authorization",
+            "value": "Bearer {{auth_token}}"
+          }
+        ],
+        "url": {
+          "raw": "http://127.0.0.1:8000/api/customer/business-names",
+          "protocol": "http",
+          "host": [
+            "127",
+            "0",
+            "0",
+            "1"
+          ],
+          "port": "8000",
+          "path": [
+            "api",
+            "customer",
+            "business-names"
+          ]
+        },
+        "description": "Get all unique business names from customers of the same admin"
+      },
+      "response": []
+    },
+    {
+      "name": "Get Customers by Business Name",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          },
+          {
+            "key": "Authorization",
+            "value": "Bearer {{auth_token}}"
+          }
+        ],
+        "url": {
+          "raw": "http://127.0.0.1:8000/api/customer/customers-by-business?business_name=ABC Company",
+          "protocol": "http",
+          "host": [
+            "127",
+            "0",
+            "0",
+            "1"
+          ],
+          "port": "8000",
+          "path": [
+            "api",
+            "customer",
+            "customers-by-business"
+          ],
+          "query": [
+            {
+              "key": "business_name",
+              "value": "ABC Company"
+            }
+          ]
+        },
+        "description": "Get customers filtered by business name"
+      },
+      "response": []
+    }
+  ],
+  "event": [
+    {
+      "listen": "prerequest",
+      "script": {
+        "type": "text/javascript",
+        "exec": [""]
+      }
+    },
+    {
+      "listen": "test",
+      "script": {
+        "type": "text/javascript",
+        "exec": [""]
+      }
+    }
+  ],
+  "variable": [
+    {
+      "id": "auth_token",
+      "key": "auth_token",
+      "value": "your_sanctum_token_here",
+      "type": "string"
+    }
+  ]
+}

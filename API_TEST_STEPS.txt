@@ -1,0 +1,405 @@
+ADMIN PANEL API TESTING STEPS
+
+=== AUTHENTICATION ===
+1. Login to get token:
+   Method: POST
+   URL: http://127.0.0.1:8000/api/admin/login
+   Fields:
+   - email (required)
+   - password (required)
+   
+   Response: Copy the "token" value for other requests
+
+=== BANNER CRUD TEST ===
+1. Create Banner:
+   Method: POST
+   URL: http://127.0.0.1:8000/api/admin/banners
+   Headers: Authorization: Bearer YOUR_TOKEN
+   Fields:
+   - image_path (required)
+   - status (required) - values: active, inactive
+
+2. Get All Banners:
+   Method: GET
+   URL: http://127.0.0.1:8000/api/admin/banners
+   Headers: Authorization: Bearer YOUR_TOKEN
+
+3. Get Single Banner:
+   Method: GET
+   URL: http://127.0.0.1:8000/api/admin/banners/{ID}
+   Headers: Authorization: Bearer YOUR_TOKEN
+
+4. Update Banner:
+   Method: PUT
+   URL: http://127.0.0.1:8000/api/admin/banners/{ID}
+   Headers: Authorization: Bearer YOUR_TOKEN
+   Fields:
+   - image_path (optional)
+   - status (optional) - values: active, inactive
+
+5. Delete Banner:
+   Method: DELETE
+   URL: http://127.0.0.1:8000/api/admin/banners/{ID}
+   Headers: Authorization: Bearer YOUR_TOKEN
+
+=== CUSTOMER CRUD TEST ===
+1. Create Customer:
+   Method: POST
+   URL: http://127.0.0.1:8000/api/admin/customers
+   Headers: Authorization: Bearer YOUR_TOKEN
+   Fields:
+   - name (required)
+   - mobile_number (required)
+   - whatsapp_number (required)
+   - village_id (required)
+   - address (required)
+   - pincode (required)
+   - status (required) - values: active, inactive
+
+2. Get All Customers:
+   Method: GET
+   URL: http://127.0.0.1:8000/api/admin/customers
+   Headers: Authorization: Bearer YOUR_TOKEN
+
+3. Get Single Customer:
+   Method: GET
+   URL: http://127.0.0.1:8000/api/admin/customers/{ID}
+   Headers: Authorization: Bearer YOUR_TOKEN
+
+4. Update Customer:
+   Method: PUT
+   URL: http://127.0.0.1:8000/api/admin/customers/{ID}
+   Headers: Authorization: Bearer YOUR_TOKEN
+   Fields:
+   - name (optional)
+   - mobile_number (optional)
+   - whatsapp_number (optional)
+   - village_id (optional)
+   - address (optional)
+   - pincode (optional)
+   - status (optional) - values: active, inactive
+
+5. Delete Customer:
+   Method: DELETE
+   URL: http://127.0.0.1:8000/api/admin/customers/{ID}
+   Headers: Authorization: Bearer YOUR_TOKEN
+
+=== VILLAGE CRUD TEST ===
+1. Create Village:
+   Method: POST
+   URL: http://127.0.0.1:8000/api/admin/villages
+   Headers: Authorization: Bearer YOUR_TOKEN
+   Fields:
+   - name (required)
+
+2. Get All Villages:
+   Method: GET
+   URL: http://127.0.0.1:8000/api/admin/villages
+   Headers: Authorization: Bearer YOUR_TOKEN
+
+3. Get Single Village:
+   Method: GET
+   URL: http://127.0.0.1:8000/api/admin/villages/{ID}
+   Headers: Authorization: Bearer YOUR_TOKEN
+
+4. Update Village:
+   Method: PUT
+   URL: http://127.0.0.1:8000/api/admin/villages/{ID}
+   Headers: Authorization: Bearer YOUR_TOKEN
+   Fields:
+   - name (optional)
+
+5. Delete Village:
+   Method: DELETE
+   URL: http://127.0.0.1:8000/api/admin/villages/{ID}
+   Headers: Authorization: Bearer YOUR_TOKEN
+
+=== SUPPORT CRUD TEST ===
+1. Create Support:
+   Method: POST
+   URL: http://127.0.0.1:8000/api/admin/supports
+   Headers: Authorization: Bearer YOUR_TOKEN
+   Fields:
+   - customer_id (required)
+   - support_type_id (required)
+   - support_category_id (required)
+   - subject (required)
+   - description (required)
+   - status (required) - values: open, closed, pending
+
+2. Get All Supports:
+   Method: GET
+   URL: http://127.0.0.1:8000/api/admin/supports
+   Headers: Authorization: Bearer YOUR_TOKEN
+
+3. Get Single Support:
+   Method: GET
+   URL: http://127.0.0.1:8000/api/admin/supports/{ID}
+   Headers: Authorization: Bearer YOUR_TOKEN
+
+4. Update Support:
+   Method: PUT
+   URL: http://127.0.0.1:8000/api/admin/supports/{ID}
+   Headers: Authorization: Bearer YOUR_TOKEN
+   Fields:
+   - customer_id (optional)
+   - support_type_id (optional)
+   - support_category_id (optional)
+   - subject (optional)
+   - description (optional)
+   - status (optional) - values: open, closed, pending
+
+5. Delete Support:
+   Method: DELETE
+   URL: http://127.0.0.1:8000/api/admin/supports/{ID}
+   Headers: Authorization: Bearer YOUR_TOKEN
+
+=== SUPPORT TYPE CRUD TEST ===
+1. Create Support Type:
+   Method: POST
+   URL: http://127.0.0.1:8000/api/admin/support-types
+   Headers: Authorization: Bearer YOUR_TOKEN
+   Fields:
+   - name (required)
+
+2. Get All Support Types:
+   Method: GET
+   URL: http://127.0.0.1:8000/api/admin/support-types
+   Headers: Authorization: Bearer YOUR_TOKEN
+
+3. Get Single Support Type:
+   Method: GET
+   URL: http://127.0.0.1:8000/api/admin/support-types/{ID}
+   Headers: Authorization: Bearer YOUR_TOKEN
+
+4. Update Support Type:
+   Method: PUT
+   URL: http://127.0.0.1:8000/api/admin/support-types/{ID}
+   Headers: Authorization: Bearer YOUR_TOKEN
+   Fields:
+   - name (optional)
+
+5. Delete Support Type:
+   Method: DELETE
+   URL: http://127.0.0.1:8000/api/admin/support-types/{ID}
+   Headers: Authorization: Bearer YOUR_TOKEN
+
+=== SUPPORT CATEGORY CRUD TEST ===
+1. Create Support Category:
+   Method: POST
+   URL: http://127.0.0.1:8000/api/admin/support-categories
+   Headers: Authorization: Bearer YOUR_TOKEN
+   Fields:
+   - name (required)
+
+2. Get All Support Categories:
+   Method: GET
+   URL: http://127.0.0.1:8000/api/admin/support-categories
+   Headers: Authorization: Bearer YOUR_TOKEN
+
+3. Get Single Support Category:
+   Method: GET
+   URL: http://127.0.0.1:8000/api/admin/support-categories/{ID}
+   Headers: Authorization: Bearer YOUR_TOKEN
+
+4. Update Support Category:
+   Method: PUT
+   URL: http://127.0.0.1:8000/api/admin/support-categories/{ID}
+   Headers: Authorization: Bearer YOUR_TOKEN
+   Fields:
+   - name (optional)
+
+5. Delete Support Category:
+   Method: DELETE
+   URL: http://127.0.0.1:8000/api/admin/support-categories/{ID}
+   Headers: Authorization: Bearer YOUR_TOKEN
+
+=== CUSTOMER PLAN CRUD TEST ===
+1. Create Customer Plan:
+   Method: POST
+   URL: http://127.0.0.1:8000/api/admin/customer-plans
+   Headers: Authorization: Bearer YOUR_TOKEN
+   Fields:
+   - customer_id (required)
+   - plan_type (required)
+   - start_date (required)
+   - next_due_date (required)
+   - status (required) - values: active, inactive
+
+2. Get All Customer Plans:
+   Method: GET
+   URL: http://127.0.0.1:8000/api/admin/customer-plans
+   Headers: Authorization: Bearer YOUR_TOKEN
+
+3. Get Single Customer Plan:
+   Method: GET
+   URL: http://127.0.0.1:8000/api/admin/customer-plans/{ID}
+   Headers: Authorization: Bearer YOUR_TOKEN
+
+4. Update Customer Plan:
+   Method: PUT
+   URL: http://127.0.0.1:8000/api/admin/customer-plans/{ID}
+   Headers: Authorization: Bearer YOUR_TOKEN
+   Fields:
+   - customer_id (optional)
+   - plan_type (optional)
+   - start_date (optional)
+   - next_due_date (optional)
+   - status (optional) - values: active, inactive
+
+5. Delete Customer Plan:
+   Method: DELETE
+   URL: http://127.0.0.1:8000/api/admin/customer-plans/{ID}
+   Headers: Authorization: Bearer YOUR_TOKEN
+
+=== EVENT CRUD TEST ===
+1. Create Event:
+   Method: POST
+   URL: http://127.0.0.1:8000/api/admin/events
+   Headers: Authorization: Bearer YOUR_TOKEN
+   Fields:
+   - name (required)
+   - description (required)
+   - image_path (optional)
+   - posted_date (required)
+   - status (required) - values: active, inactive
+
+2. Get All Events:
+   Method: GET
+   URL: http://127.0.0.1:8000/api/admin/events
+   Headers: Authorization: Bearer YOUR_TOKEN
+
+3. Get Single Event:
+   Method: GET
+   URL: http://127.0.0.1:8000/api/admin/events/{ID}
+   Headers: Authorization: Bearer YOUR_TOKEN
+
+4. Update Event:
+   Method: PUT
+   URL: http://127.0.0.1:8000/api/admin/events/{ID}
+   Headers: Authorization: Bearer YOUR_TOKEN
+   Fields:
+   - name (optional)
+   - description (optional)
+   - image_path (optional)
+   - posted_date (optional)
+   - status (optional) - values: active, inactive
+
+5. Delete Event:
+   Method: DELETE
+   URL: http://127.0.0.1:8000/api/admin/events/{ID}
+   Headers: Authorization: Bearer YOUR_TOKEN
+
+=== GALLERY ITEM CRUD TEST ===
+1. Create Gallery Item:
+   Method: POST
+   URL: http://127.0.0.1:8000/api/admin/gallery-items
+   Headers: Authorization: Bearer YOUR_TOKEN
+   Fields:
+   - title (required)
+   - description (optional)
+   - image_path (required)
+   - status (required) - values: active, inactive
+
+2. Get All Gallery Items:
+   Method: GET
+   URL: http://127.0.0.1:8000/api/admin/gallery-items
+   Headers: Authorization: Bearer YOUR_TOKEN
+
+3. Get Single Gallery Item:
+   Method: GET
+   URL: http://127.0.0.1:8000/api/admin/gallery-items/{ID}
+   Headers: Authorization: Bearer YOUR_TOKEN
+
+4. Update Gallery Item:
+   Method: PUT
+   URL: http://127.0.0.1:8000/api/admin/gallery-items/{ID}
+   Headers: Authorization: Bearer YOUR_TOKEN
+   Fields:
+   - title (optional)
+   - description (optional)
+   - image_path (optional)
+   - status (optional) - values: active, inactive
+
+5. Delete Gallery Item:
+   Method: DELETE
+   URL: http://127.0.0.1:8000/api/admin/gallery-items/{ID}
+   Headers: Authorization: Bearer YOUR_TOKEN
+
+=== NEWS CRUD TEST ===
+1. Create News:
+   Method: POST
+   URL: http://127.0.0.1:8000/api/admin/news
+   Headers: Authorization: Bearer YOUR_TOKEN
+   Fields:
+   - title (required)
+   - slug (optional)
+   - image_path (optional)
+   - keywords (optional)
+   - summary (required)
+   - author (required)
+   - posted_date (required)
+   - status (required) - values: draft, published, archived
+
+2. Get All News:
+   Method: GET
+   URL: http://127.0.0.1:8000/api/admin/news
+   Headers: Authorization: Bearer YOUR_TOKEN
+
+3. Get Single News:
+   Method: GET
+   URL: http://127.0.0.1:8000/api/admin/news/{ID}
+   Headers: Authorization: Bearer YOUR_TOKEN
+
+4. Update News:
+   Method: PUT
+   URL: http://127.0.0.1:8000/api/admin/news/{ID}
+   Headers: Authorization: Bearer YOUR_TOKEN
+   Fields:
+   - title (optional)
+   - slug (optional)
+   - image_path (optional)
+   - keywords (optional)
+   - summary (optional)
+   - author (optional)
+   - posted_date (optional)
+   - status (optional) - values: draft, published, archived
+
+5. Delete News:
+   Method: DELETE
+   URL: http://127.0.0.1:8000/api/admin/news/{ID}
+   Headers: Authorization: Bearer YOUR_TOKEN
+
+=== NOTICE CRUD TEST ===
+1. Create Notice:
+   Method: POST
+   URL: http://127.0.0.1:8000/api/admin/notices
+   Headers: Authorization: Bearer YOUR_TOKEN
+   Fields:
+   - name (required)
+   - description (required)
+   - status (required) - values: active, inactive
+
+2. Get All Notices:
+   Method: GET
+   URL: http://127.0.0.1:8000/api/admin/notices
+   Headers: Authorization: Bearer YOUR_TOKEN
+
+3. Get Single Notice:
+   Method: GET
+   URL: http://127.0.0.1:8000/api/admin/notices/{ID}
+   Headers: Authorization: Bearer YOUR_TOKEN
+
+4. Update Notice:
+   Method: PUT
+   URL: http://127.0.0.1:8000/api/admin/notices/{ID}
+   Headers: Authorization: Bearer YOUR_TOKEN
+   Fields:
+   - name (optional)
+   - description (optional)
+   - status (optional) - values: active, inactive
+
+5. Delete Notice:
+   Method: DELETE
+   URL: http://127.0.0.1:8000/api/admin/notices/{ID}
+   Headers: Authorization: Bearer YOUR_TOKEN

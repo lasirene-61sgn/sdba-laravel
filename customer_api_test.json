@@ -1,0 +1,162 @@
+{
+  "info": {
+    "name": "Customer API Endpoints",
+    "description": "API endpoints for customer functionality"
+  },
+  "endpoints": [
+    {
+      "name": "Send OTP",
+      "method": "POST",
+      "url": "/api/customer/send-otp",
+      "description": "Send OTP to customer's mobile number",
+      "request": {
+        "mobile": "9876543210"
+      }
+    },
+    {
+      "name": "Verify OTP",
+      "method": "POST",
+      "url": "/api/customer/verify-otp",
+      "description": "Verify OTP and authenticate customer",
+      "request": {
+        "mobile": "9876543210",
+        "otp": "123456"
+      }
+    },
+    {
+      "name": "Login with Password",
+      "method": "POST",
+      "url": "/api/customer/login",
+      "description": "Login customer with mobile and password",
+      "request": {
+        "mobile": "9876543210",
+        "password": "customerpassword"
+      }
+    },
+    {
+      "name": "Set Password",
+      "method": "POST",
+      "url": "/api/customer/set-password",
+      "description": "Set password for customer",
+      "request": {
+        "customer_id": 1,
+        "password": "newpassword",
+        "password_confirmation": "newpassword"
+      }
+    },
+    {
+      "name": "Get Profile",
+      "method": "GET",
+      "url": "/api/customer/profile",
+      "description": "Get customer profile information",
+      "auth_required": true
+    },
+    {
+      "name": "Update Profile",
+      "method": "PUT",
+      "url": "/api/customer/profile",
+      "description": "Update customer profile information",
+      "auth_required": true,
+      "request": {
+        "name": "John Doe",
+        "father_name": "James Doe",
+        "gotra": "Some Gotra",
+        "label_name": "Customer Label",
+        "district": "Some District",
+        "ms_firm_name": "Some Firm",
+        "dno": "123",
+        "street_road": "Some Street",
+        "address2": "Some Address",
+        "city": "Some City",
+        "pincode": "123456",
+        "whatsapp": "9876543210",
+        "date_of_birth": "1990-01-01",
+        "anniversary_date": "2000-01-01"
+      }
+    },
+    {
+      "name": "Get Plans",
+      "method": "GET",
+      "url": "/api/customer/plans",
+      "description": "Get customer plans",
+      "auth_required": true
+    },
+    {
+      "name": "Get Customers",
+      "method": "GET",
+      "url": "/api/customer/customers",
+      "description": "Get list of customers from the same admin",
+      "auth_required": true
+    },
+    {
+      "name": "Get Gallery",
+      "method": "GET",
+      "url": "/api/customer/gallery",
+      "description": "Get gallery items from the customer's admin",
+      "auth_required": true
+    },
+    {
+      "name": "Get Banner",
+      "method": "GET",
+      "url": "/api/customer/banner",
+      "description": "Get banner items from the customer's admin",
+      "auth_required": true
+    },
+    {
+      "name": "Get Notice",
+      "method": "GET",
+      "url": "/api/customer/notice",
+      "description": "Get notice items from the customer's admin",
+      "auth_required": true
+    },
+    {
+      "name": "Get Village",
+      "method": "GET",
+      "url": "/api/customer/village",
+      "description": "Get village items from the customer's admin",
+      "auth_required": true
+    },
+    {
+      "name": "Get Event",
+      "method": "GET",
+      "url": "/api/customer/event",
+      "description": "Get event items from the customer's admin",
+      "auth_required": true
+    },
+    {
+      "name": "Get News",
+      "method": "GET",
+      "url": "/api/customer/news",
+      "description": "Get news items from the customer's admin",
+      "auth_required": true
+    },
+    {
+      "name": "Get Support",
+      "method": "GET",
+      "url": "/api/customer/support",
+      "description": "Get support items from the customer's admin",
+      "auth_required": true
+    },
+    {
+      "name": "Get Committee",
+      "method": "GET",
+      "url": "/api/customer/committee",
+      "description": "Get committee items from the customer's admin",
+      "auth_required": true
+    },
+    {
+      "name": "Get Customer Plan",
+      "method": "GET",
+      "url": "/api/customer/customer-plan",
+      "description": "Get customer plan items from the customer's admin",
+      "auth_required": true
+    },
+    {
+      "name": "Logout",
+      "method": "POST",
+      "url": "/api/customer/logout",
+      "description": "Logout the customer",
+      "auth_required": true
+    }
+  ]
+}

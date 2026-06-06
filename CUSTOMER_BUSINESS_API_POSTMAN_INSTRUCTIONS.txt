@@ -1,0 +1,70 @@
+HOW TO TEST CUSTOMER BUSINESS API IN POSTMAN:
+
+1. FIRST API: Get Business Names
+   URL: http://127.0.0.1:8000/api/customer/business-names
+   Method: GET
+   Headers:
+   - Accept: application/json
+   - Authorization: Bearer {your_sanctum_token}
+
+2. SECOND API: Get Customers by Business Name
+   URL: http://127.0.0.1:8000/api/customer/customers-by-business?business_name={business_name}
+   Method: GET
+   Headers:
+   - Accept: application/json
+   - Authorization: Bearer {your_sanctum_token}
+   Query Parameter:
+   - business_name: The name of the business you want to filter by
+
+EXAMPLE:
+To get all customers with business name "ABC Company":
+http://127.0.0.1:8000/api/customer/customers-by-business?business_name=ABC Company
+
+REQUIREMENTS:
+- You need a valid Sanctum authentication token
+- The customer must belong to an admin
+- Only customers from the same admin will be returned
+
+SAMPLE RESPONSE FOR BUSINESS NAMES API:
+{
+  "status": "success",
+  "data": [
+    {
+      "business_name": "ABC Company",
+      "business_type": "Retail",
+      "product_service": "Grocery Store",
+      "office_address": "123 Main St",
+      "mobile": "9876543210"
+    },
+    {
+      "business_name": "XYZ Services",
+      "business_type": "Service",
+      "product_service": "Consulting",
+      "office_address": "456 Oak Ave",
+      "mobile": "8765432109"
+    }
+  ]
+}
+
+SAMPLE RESPONSE FOR CUSTOMERS BY BUSINESS NAME API:
+{
+  "status": "success",
+  "data": [
+    {
+      "id": 1,
+      "name": "John Doe",
+      "mobile": "9876543210",
+      "whatsapp": "9876543210",
+      "email": "john@example.com",
+      "business_name": "ABC Company",
+      "business_type": "Retail",
+      "product_service": "Grocery Store",
+      "office_address": "123 Main St",
+      "village_id": 1,
+      "village": {
+        "id": 1,
+        "name": "Sample Village"
+      }
+    }
+  ]
+}
