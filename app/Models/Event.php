@@ -165,4 +165,11 @@ class Event extends Model
         }
         return null;
     }
+    public function viewers()
+    {
+        return $this->belongsToMany(Customer::class,
+        'event_views',
+        'event_id',
+        'user_id');
+    }
 }

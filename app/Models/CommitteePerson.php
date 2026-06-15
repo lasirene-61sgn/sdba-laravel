@@ -24,4 +24,13 @@ class CommitteePerson extends Model
     public function admin(){
         return $this->belongsTo(Admin::class);
     }
+    public function viewers()
+    {
+        return $this->belongsToMany(
+            Customer::class,
+            'committee_views',
+            'committee_person_id',
+            'user_id',
+        );
+    }
 }

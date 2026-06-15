@@ -32,6 +32,7 @@ Route::prefix('admin')->group(function () {
 
         // Customers
         Route::apiResource('customers', CustomerController::class);
+        
 
         // Villages
         Route::apiResource('villages', VillageController::class);
@@ -86,14 +87,19 @@ Route::prefix('customer')->group(function () {
 
         // Customer Plans
         Route::get('/plans', [CustomerApiController::class, 'plans']);
+        //Dashboard Counts
+        Route::get('/dashboard-counters', [CustomerApiController::class, 'dashboardCounters']);
 
         // Customer List
         Route::get('/states', [CustomerApiController::class, 'listStates']);
     Route::get('/cities', [CustomerApiController::class, 'listCities']);
         Route::get('/customers', [CustomerApiController::class, 'listCustomers']);
+         Route::post('/delete-account', [CustomerApiController::class, 'deleteProfile']);
 
         // Customer Detail
         Route::get('/customers/{id}', [CustomerApiController::class, 'showCustomer']);
+
+        Route::get('/social-links', [CustomerApiController::class, 'getSocialLinks']);
 
         // Gallery
         Route::get('/gallery', [CustomerApiController::class, 'gallery']);

@@ -91,4 +91,12 @@ class GalleryItem extends Model
         }
         return null;
     }
+
+    public function viewers()
+    {
+        return $this->belongsToMany(Customer::class,
+        'gallery_views',
+        'gallery_item_id',
+        'user_id');
+    }
 }

@@ -63,4 +63,11 @@ class News extends Model
         }
         return $slug;
     }
+    public function viewers()
+    {
+        return $this->belongsToMany(Customer::class,
+        'news_views',
+        'news_id',
+        'user_id');
+    }
 }

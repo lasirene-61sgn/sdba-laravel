@@ -27,6 +27,7 @@ use App\Http\Controllers\Customer\CustomerPollController;
 use App\Http\Controllers\Customer\FamilyMemberController;
 use App\Http\Controllers\Admin\BillController;
 use App\Http\Controllers\Admin\HelplineController;
+use App\Http\Controllers\Admin\LinkController;
 
 /*
 |--------------------------------------------------------------------------
@@ -242,6 +243,7 @@ Route::prefix('customer/{customer}/family')->name('admin.customer.family.')->gro
 
     // Helpline Section
     Route::resource('helpline', HelplineController::class)->names('admin.helpline');
+    Route::resource('links', LinkController::class)->names('admin.links');
 
     // Polls Routes
     Route::resource('polls', PollController::class)->names('admin.polls');

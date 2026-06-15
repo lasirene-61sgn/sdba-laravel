@@ -11,7 +11,6 @@ use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Validator;
 use Laravel\Ai\Ai;
-use function Laravel\Ai\agent;
 
 class CustomerController extends Controller
 {
@@ -114,6 +113,7 @@ class CustomerController extends Controller
             'hobbies' => 'nullable|string|max:255',
             'native_place' => 'nullable|string|max:100',
             'status' => 'required|in:active,inactive',
+            'background_image' => 'nullable|image|mimes:jpeg,png,jpg,gif,svg,webp|max:4096',
 
             // Family validation rules
             'family' => 'nullable|array',
@@ -137,6 +137,11 @@ class CustomerController extends Controller
         if ($request->hasFile('image')) {
             $imagePath = $request->file('image')->store('customer_images', 'public');
             $validatedData['image'] = $imagePath;
+        }
+
+        if($request->hasFile('background_image')){
+            $imagePath = $request->file('background_image')->store('customer_backgrounds', 'public');
+            $validatedData['background_image'] = $imagePath;
         }
 
         // 2. Create the main customer record
@@ -258,6 +263,7 @@ class CustomerController extends Controller
             'hobbies' => 'nullable|string|max:255',
             'native_place' => 'nullable|string|max:100',
             'status' => 'required|in:active,inactive',
+            'background_image' => 'nullable|image|mimes:jpeg,png,jpg,gif,svg,webp|max:4096',
         ]);
 
         // Safety check: Ensure the selected village is either owned by the admin or the existing saved one
@@ -266,6 +272,14 @@ class CustomerController extends Controller
             if (!$village || ($village->admin_id !== $adminId && $village->id !== $customer->village_id)) {
                 return redirect()->back()->withInput()->withErrors(['village_id' => 'Invalid village selection or permission denied.']);
             }
+        }
+
+        if($request->hasFile('background_image')) {
+            if($customer->background_image && Storage::exists('public/' . $customer->background_image)){
+                Storage::delete('public/' . $customer->background_image);
+            }
+            $imagePath = $request->file('background_image')->store('customer_backgrounds', 'public');
+            $validatedData['background_image'] = $imagePath;
         }
 
         // Handle image upload

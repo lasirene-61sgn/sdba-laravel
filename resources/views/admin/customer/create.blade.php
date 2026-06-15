@@ -30,7 +30,7 @@
         </div>
 
         Container where dynamic family blocks will be injected -->
-        <!-- <div id="family-members-container" class="space-y-4"></div>
+    <!-- <div id="family-members-container" class="space-y-4"></div>
     </div> -->
     <!-- ========================================================== -->
     {{-- Main Form Container --}}
@@ -465,6 +465,14 @@
             @error('native_place')<p class="mt-2 text-sm text-red-600">{{ $message }}</p>@enderror
         </div>
         @endif
+    </div>
+    <div class="mb-3 md:mb-0">
+        <label for="background_image" class="block text-sm font-medium text-gray-700 mb-1">background_image</label>
+        <input type="file"
+            class="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 cursor-pointer @error('background_image') border-red-500 @enderror"
+            id="background_image"
+            name="background_image">
+        @error('background_image')<p class="mt-2 text-sm text-red-600">{{ $message }}</p>@enderror
     </div>
 
     {{-- Submission Buttons --}}
