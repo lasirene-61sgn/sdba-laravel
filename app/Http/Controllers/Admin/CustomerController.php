@@ -510,11 +510,20 @@ class CustomerController extends Controller
                 "  \"pincode\": \"Pincode\",\n" .
                 "  \"mobile\": \"First mobile number listed\",\n" .
                 "  \"address2\": \"Residence address\",\n" .
-                "  \"office_address\": \"Firm Name and Address combined\"\n" .
+                "  \"office_address\": \"Firm Name and Address combined\",\n" .
+                "  \"family_members\": [\n" .
+                "    {\n" .
+                "      \"name\": \"Name of family member\",\n" .
+                "      \"father_or_spouse\": \"Father/Spouse Name\",\n" .
+                "      \"age_or_dob\": \"Age or DOB\",\n" .
+                "      \"mobile\": \"Mobile Number\"\n" .
+                "    }\n" .
+                "  ]\n" .
                 "}\n\n" .
                 "STRICT RULES:\n" .
                 "1. Respond ONLY with a clean, raw JSON object string. Do not include markdown ticks like ```json.\n" .
-                "2. Translate or transliterate any native handwriting text into UPPERCASE ENGLISH CHARACTERS.";
+                "2. Translate or transliterate any native handwriting text into UPPERCASE ENGLISH CHARACTERS.\n" .
+                "3. Extract all family members from the table into the family_members array.";
 
             // 4. Construct the standard payload for the official Google Gemini 1.5 Flash Vision Endpoint
             $payload = [
@@ -535,8 +544,8 @@ class CustomerController extends Controller
 
             // 5. Fire a direct, lightweight HTTP request, bypassing all local package vendor code
             $client = new \GuzzleHttp\Client();
-            // REMOVED the appended query key string to fix cURL port translation failures
-            $url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent";
+            // Restored the appended query key string as required by Gemini API
+            $url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=" . $apiKey;
             $response = $client->post($url, [
                 'json' => $payload,
                 'headers' => [
@@ -565,6 +574,12 @@ class CustomerController extends Controller
                 'success' => true,
                 'data'    => $extractedData
             ]);
+        } catch (\GuzzleHttp\Exception\ClientException $e) {
+            $googleError = $e->getResponse()->getBody()->getContents();
+            return response()->json([
+                'success' => false,
+                'message' => 'Google API Error: ' . $googleError
+            ], 500);
         } catch (\Exception $e) {
             // This will now catch the exact error description and send it cleanly to your browser screen!
             return response()->json([

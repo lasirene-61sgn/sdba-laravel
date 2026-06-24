@@ -102,6 +102,27 @@
                         <textarea name="office_address" id="field_office_address" rows="3" class="w-full rounded-lg border-gray-300 shadow-sm focus:border-purple-500 focus:ring-purple-500 text-sm"></textarea>
                     </div>
 
+                    <div class="mt-8 border-t border-gray-200 pt-6">
+                        <h4 class="text-sm font-bold text-gray-700 uppercase tracking-wider mb-4">Family Members Details</h4>
+                        <div class="overflow-x-auto rounded-lg border border-gray-200">
+                            <table class="min-w-full divide-y divide-gray-200 text-sm" id="familyMembersTable">
+                                <thead class="bg-gray-50">
+                                    <tr>
+                                        <th class="px-4 py-3 text-left font-semibold text-gray-600">S.No</th>
+                                        <th class="px-4 py-3 text-left font-semibold text-gray-600">Name</th>
+                                        <th class="px-4 py-3 text-left font-semibold text-gray-600">Father/Spouse Name</th>
+                                        <th class="px-4 py-3 text-left font-semibold text-gray-600">Age/DOB</th>
+                                        <th class="px-4 py-3 text-left font-semibold text-gray-600">Mobile No</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="bg-white divide-y divide-gray-200" id="familyMembersBody">
+                                    <!-- Dynamic rows will be inserted here by AI -->
+                                    <tr class="text-gray-500 italic"><td colspan="5" class="px-4 py-4 text-center">No family members added yet. Scan a document to auto-populate.</td></tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
                     <input type="hidden" name="status" value="active">
                 </div>
 
@@ -214,6 +235,23 @@ document.addEventListener('DOMContentLoaded', function () {
                 mapField('mobile', aiData.mobile);
                 mapField('address2', aiData.address2);
                 mapField('office_address', aiData.office_address);
+
+                // Populate Family Members Table
+                const tbody = document.getElementById('familyMembersBody');
+                if (aiData.family_members && Array.isArray(aiData.family_members) && aiData.family_members.length > 0) {
+                    tbody.innerHTML = ''; // Clear default message
+                    aiData.family_members.forEach((member, index) => {
+                        const tr = document.createElement('tr');
+                        tr.innerHTML = `
+                            <td class="px-4 py-3">${index + 1}</td>
+                            <td class="px-4 py-3"><input type="text" name="family[${index}][name]" value="${member.name || ''}" class="w-full border-gray-300 rounded text-sm p-1"></td>
+                            <td class="px-4 py-3"><input type="text" name="family[${index}][father_or_spouse]" value="${member.father_or_spouse || ''}" class="w-full border-gray-300 rounded text-sm p-1"></td>
+                            <td class="px-4 py-3"><input type="text" name="family[${index}][age_or_dob]" value="${member.age_or_dob || ''}" class="w-full border-gray-300 rounded text-sm p-1"></td>
+                            <td class="px-4 py-3"><input type="text" name="family[${index}][mobile]" value="${member.mobile || ''}" class="w-full border-gray-300 rounded text-sm p-1"></td>
+                        `;
+                        tbody.appendChild(tr);
+                    });
+                }
 
                 alert('Slip scanned and fields mapped successfully!');
             } else {
