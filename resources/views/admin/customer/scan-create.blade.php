@@ -31,6 +31,22 @@
                     <p class="text-xs text-gray-400 mt-1">PNG, JPG or JPEG up to 3MB</p>
                 </div>
 
+                <div id="cameraOptionContainer" class="mt-3">
+                    <div class="flex items-center justify-center relative my-3">
+                        <div class="absolute inset-0 flex items-center" aria-hidden="true">
+                            <div class="w-full border-t border-gray-200"></div>
+                        </div>
+                        <div class="relative flex justify-center text-xs uppercase">
+                            <span class="bg-white px-2 text-gray-500 font-semibold">Or</span>
+                        </div>
+                    </div>
+                    <input type="file" id="scanCameraInp" accept="image/*" capture="environment" class="hidden">
+                    <button type="button" id="startCameraBtn" class="w-full flex items-center justify-center space-x-2 py-3 px-4 bg-purple-50 hover:bg-purple-100 text-purple-700 font-semibold rounded-xl border border-purple-200 transition shadow-sm">
+                         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+                         <span>Take Photo with Camera</span>
+                    </button>
+                </div>
+
                 <div id="previewContainer" class="hidden border border-gray-200 rounded-xl overflow-hidden bg-gray-900 flex items-center justify-center max-h-[500px] p-2 relative group shadow-inner">
                     <img id="scannedImagePreview" src="" alt="Slip Document Viewport" class="max-h-[480px] w-full object-contain rounded">
                     <button type="button" id="changeImageBtn" class="absolute top-3 right-3 bg-red-600 hover:bg-red-700 text-white p-2 rounded-lg shadow transition opacity-0 group-hover:opacity-100 duration-200" title="Remove & Scan Different Image">
@@ -134,18 +150,147 @@
         </div>
     </div>
 </div>
+
+<!-- Camera Capture Modal -->
+<div id="cameraModal" class="fixed inset-0 z-50 hidden flex items-center justify-center bg-black bg-opacity-75 p-4">
+    <div class="bg-white rounded-2xl overflow-hidden max-w-lg w-full shadow-2xl border border-gray-100 flex flex-col animate-fade-in">
+        <!-- Modal Header -->
+        <div class="px-6 py-4 border-b border-gray-100 flex justify-between items-center bg-gray-50">
+            <h3 class="text-base font-bold text-gray-800 flex items-center">
+                <svg class="w-5 h-5 mr-2 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+                Document Slip Camera
+            </h3>
+            <button type="button" id="closeCameraModalBtn" class="text-gray-400 hover:text-gray-600 transition">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+            </button>
+        </div>
+
+        <!-- Video Container -->
+        <div class="p-6 flex flex-col items-center justify-center bg-black relative min-h-[320px]">
+            <video id="modalVideo" autoplay playsinline class="w-full h-auto max-h-[360px] object-cover rounded-xl shadow-inner bg-black"></video>
+            <!-- Camera Loading indicator -->
+            <div id="cameraLoadingSpinner" class="absolute inset-0 flex flex-col items-center justify-center bg-gray-900 bg-opacity-95 rounded-xl z-20">
+                <div class="inline-block animate-spin rounded-full h-10 w-10 border-4 border-purple-500 border-t-transparent mb-3"></div>
+                <p class="text-sm font-semibold text-gray-300">Initializing Camera...</p>
+            </div>
+            <canvas id="modalCanvas" class="hidden"></canvas>
+        </div>
+
+        <!-- Modal Footer -->
+        <div class="px-6 py-4 bg-gray-50 border-t border-gray-100 flex justify-end space-x-3">
+            <button type="button" id="cancelCameraBtn" class="px-5 py-2.5 border border-gray-300 rounded-xl text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 transition">Cancel</button>
+            <button type="button" id="capturePhotoBtn" class="px-5 py-2.5 bg-purple-600 hover:bg-purple-700 text-white rounded-xl text-sm font-semibold shadow-md flex items-center space-x-1.5 transition">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+                <span>Capture Photo</span>
+            </button>
+        </div>
+    </div>
+</div>
+
 <script>
 document.addEventListener('DOMContentLoaded', function () {
     const dropzone = document.getElementById('dropzone');
     const fileInp = document.getElementById('scanFileInp');
+    const cameraInp = document.getElementById('scanCameraInp');
+    const startCameraBtn = document.getElementById('startCameraBtn');
+    const cameraOptionContainer = document.getElementById('cameraOptionContainer');
     const previewContainer = document.getElementById('previewContainer');
     const imgPreview = document.getElementById('scannedImagePreview');
     const changeImageBtn = document.getElementById('changeImageBtn');
     const loadingState = document.getElementById('loadingState');
 
+    // Camera Modal elements
+    const cameraModal = document.getElementById('cameraModal');
+    const modalVideo = document.getElementById('modalVideo');
+    const modalCanvas = document.getElementById('modalCanvas');
+    const capturePhotoBtn = document.getElementById('capturePhotoBtn');
+    const cancelCameraBtn = document.getElementById('cancelCameraBtn');
+    const closeCameraModalBtn = document.getElementById('closeCameraModalBtn');
+    const cameraLoadingSpinner = document.getElementById('cameraLoadingSpinner');
+    let videoStream = null;
+
+    // Device detection helper
+    function isMobileDevice() {
+        return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+    }
+
+    // Camera Modal controls
+    function openCameraModal() {
+        if (!cameraModal || !modalVideo) return;
+        cameraModal.classList.remove('hidden');
+        if (cameraLoadingSpinner) cameraLoadingSpinner.classList.remove('hidden');
+
+        navigator.mediaDevices.getUserMedia({
+            video: {
+                facingMode: 'environment',
+                width: { ideal: 1920 },
+                height: { ideal: 1080 }
+            },
+            audio: false
+        })
+        .then(stream => {
+            videoStream = stream;
+            modalVideo.srcObject = stream;
+            modalVideo.onloadedmetadata = () => {
+                modalVideo.play();
+                if (cameraLoadingSpinner) cameraLoadingSpinner.classList.add('hidden');
+            };
+        })
+        .catch(err => {
+            console.error("Camera access error:", err);
+            alert("Could not access camera: " + err.message);
+            closeCameraModal();
+        });
+    }
+
+    function closeCameraModal() {
+        if (cameraModal) cameraModal.classList.add('hidden');
+        if (videoStream) {
+            videoStream.getTracks().forEach(track => track.stop());
+            videoStream = null;
+        }
+        if (modalVideo) {
+            modalVideo.srcObject = null;
+        }
+    }
+
+    // Modal capture click event
+    if (capturePhotoBtn && modalCanvas && modalVideo) {
+        capturePhotoBtn.addEventListener('click', function() {
+            const context = modalCanvas.getContext('2d');
+            modalCanvas.width = modalVideo.videoWidth || 640;
+            modalCanvas.height = modalVideo.videoHeight || 480;
+            context.drawImage(modalVideo, 0, 0, modalCanvas.width, modalCanvas.height);
+            
+            modalCanvas.toBlob(function(blob) {
+                if (blob) {
+                    const file = new File([blob], "camera_capture.jpg", { type: "image/jpeg" });
+                    closeCameraModal();
+                    uploadAndParseSlip(file);
+                }
+            }, 'image/jpeg', 0.9);
+        });
+    }
+
+    // Wire cancel/close events
+    if (cancelCameraBtn) cancelCameraBtn.addEventListener('click', closeCameraModal);
+    if (closeCameraModalBtn) closeCameraModalBtn.addEventListener('click', closeCameraModal);
+
     // Trigger input click
     if (dropzone) {
         dropzone.addEventListener('click', () => fileInp.click());
+    }
+
+    // Trigger camera input click (detecting Mobile vs PC)
+    if (startCameraBtn && cameraInp) {
+        startCameraBtn.addEventListener('click', function(e) {
+            e.stopPropagation();
+            if (isMobileDevice()) {
+                cameraInp.click(); // Launches native system camera app directly on Mobile
+            } else {
+                openCameraModal(); // Launches interactive WebRTC viewfinder modal on PC/Desktop
+            }
+        });
     }
 
     // File dropped or selected listener
@@ -157,14 +302,25 @@ document.addEventListener('DOMContentLoaded', function () {
         });
     }
 
+    // Camera photo taken listener
+    if (cameraInp) {
+        cameraInp.addEventListener('change', function(e) {
+            if (e.target.files.length > 0) {
+                uploadAndParseSlip(e.target.files[0]);
+            }
+        });
+    }
+
     // Reset layout view
     if (changeImageBtn) {
         changeImageBtn.addEventListener('click', function(e) {
             e.stopPropagation();
             if (fileInp) fileInp.value = '';
+            if (cameraInp) cameraInp.value = '';
             if (imgPreview) imgPreview.src = '';
             if (previewContainer) previewContainer.classList.add('hidden');
             if (dropzone) dropzone.classList.remove('hidden');
+            if (cameraOptionContainer) cameraOptionContainer.classList.remove('hidden');
             if (loadingState) loadingState.classList.add('hidden');
         });
     }
@@ -172,6 +328,7 @@ document.addEventListener('DOMContentLoaded', function () {
     function uploadAndParseSlip(file) {
         // Toggle view containers safely
         if (dropzone) dropzone.classList.add('hidden');
+        if (cameraOptionContainer) cameraOptionContainer.classList.add('hidden');
         if (previewContainer) previewContainer.classList.remove('hidden');
         if (loadingState) loadingState.classList.remove('hidden');
 
