@@ -33,30 +33,41 @@ class CustomerController extends Controller
     /**
      * Display a listing of the resource (Index).
      */
-    public function index()
+    public function index(Request $request)
     {
         $adminId = $this->getCurrentAdminId();
+        $search = $request->input('search');
+
+        $query = Customer::with('village')->where('admin_id', $adminId);
+
+        if ($search) {
+            $query->where(function ($q) use ($search) {
+                $q->where('name', 'like', "%{$search}%")
+                  ->orWhere('mobile', 'like', "%{$search}%")
+                  ->orWhere('area', 'like', "%{$search}%")
+                  ->orWhereHas('village', function ($qv) use ($search) {
+                      $qv->where('name', 'like', "%{$search}%");
+                  });
+            });
+        }
 
         // CRITICAL FIX: Only fetch customers created by the current admin (paginated)
-        // Sort by ID ascending to show oldest customers first (order of creation)
-        $customers = Customer::with('village')
-            ->where('admin_id', $adminId)
-            ->orderBy('id', 'asc')
-            ->paginate(10); // Show 10 customers per page
+        // Sort by updated_at descending to show recently updated/created customers first
+        $customers = $query->orderBy('updated_at', 'desc')->paginate(10);
+        $customers->appends(['search' => $search]); // Keep search in pagination links
 
         // Get all customers for printing (without pagination)
         // Limit to 5000 records to balance usability with performance
-        // Sort by ID ascending to show oldest customers first (order of creation)
         $allCustomers = Customer::with('village')
             ->where('admin_id', $adminId)
-            ->orderBy('id', 'asc')
+            ->orderBy('updated_at', 'desc')
             ->limit(5000)
             ->get();
 
         // Get field permissions
         $fieldPermissions = $this->getFieldPermissions();
 
-        return view('admin.customer.index', compact('customers', 'fieldPermissions', 'allCustomers'));
+        return view('admin.customer.index', compact('customers', 'fieldPermissions', 'allCustomers', 'search'));
     }
 
     /**
@@ -166,6 +177,90 @@ class CustomerController extends Controller
         }
 
         return redirect()->route('admin.customer.index')->with('success', 'Customer and family profile created successfully!');
+    }
+
+    /**
+     * Store multiple newly created customer resources in storage.
+     */
+    public function storeMultiple(Request $request)
+    {
+        $customers = $request->input('customers', []);
+        $savedCount = 0;
+        $skippedCount = 0;
+        $skippedDetails = [];
+
+        $adminId = $this->getCurrentAdminId();
+
+        foreach ($customers as $index => $customerData) {
+            // Check for duplicates by mobile and name
+            if (!empty($customerData['mobile'])) {
+                $exists = Customer::where('mobile', $customerData['mobile'])
+                    ->where('admin_id', $adminId)
+                    ->exists();
+
+                if ($exists) {
+                    $skippedCount++;
+                    $skippedDetails[] = ($customerData['name'] ?? 'Unknown') . ' (' . $customerData['mobile'] . ') - Already Added';
+                    continue;
+                }
+            }
+
+            // Fallback for duplicates if mobile is not provided but name is
+            if (empty($customerData['mobile']) && !empty($customerData['name'])) {
+                $exists = Customer::where('name', $customerData['name'])
+                    ->where('admin_id', $adminId)
+                    ->exists();
+
+                if ($exists) {
+                    $skippedCount++;
+                    $skippedDetails[] = $customerData['name'] . ' - Already Added';
+                    continue;
+                }
+            }
+
+            // Set default status if missing
+            if (empty($customerData['status'])) {
+                $customerData['status'] = 'active';
+            }
+            $customerData['admin_id'] = $adminId;
+
+            // Prepare main customer fields
+            $mainCustomerFields = collect($customerData)->except(['family', '_token'])->toArray();
+
+            // Create customer
+            $customer = Customer::create($mainCustomerFields);
+
+            // Process family members
+            if (isset($customerData['family']) && is_array($customerData['family'])) {
+                foreach ($customerData['family'] as $familyData) {
+                    // Only create if at least name is provided
+                    if (!empty($familyData['name'])) {
+                        // Rename keys to match db structure if needed
+                        // The prompt gave us father_or_spouse and age_or_dob. 
+                        // The db expects relationship, gender, mobile, date_of_birth.
+                        // Let's store father_or_spouse in relationship and age_or_dob in date_of_birth or just pass them if columns exist.
+                        // Looking at store, it expects 'name', 'relationship', 'gender', 'mobile', 'date_of_birth'
+                        $formattedFamilyData = [
+                            'name' => $familyData['name'],
+                            'relationship' => $familyData['father_or_spouse'] ?? null,
+                            'date_of_birth' => $familyData['age_or_dob'] ?? null,
+                            'mobile' => $familyData['mobile'] ?? null,
+                        ];
+                        $customer->familyMembers()->create($formattedFamilyData);
+                    }
+                }
+            }
+
+            $savedCount++;
+        }
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Processed successfully.',
+            'saved_count' => $savedCount,
+            'skipped_count' => $skippedCount,
+            'skipped_details' => $skippedDetails
+        ]);
     }
 
     /**
@@ -313,6 +408,92 @@ class CustomerController extends Controller
 
         $customer->delete();
         return redirect()->route('admin.customer.index')->with('success', 'Customer deleted successfully!');
+    }
+
+    /**
+     * Export customers to CSV format matching the bulk upload format
+     */
+    public function export(Request $request)
+    {
+        $adminId = $this->getCurrentAdminId();
+        $search = $request->input('search');
+
+        $query = Customer::with('village')->where('admin_id', $adminId);
+
+        if ($search) {
+            $query->where(function ($q) use ($search) {
+                $q->where('name', 'like', "%{$search}%")
+                  ->orWhere('mobile', 'like', "%{$search}%")
+                  ->orWhere('area', 'like', "%{$search}%")
+                  ->orWhereHas('village', function ($qv) use ($search) {
+                      $qv->where('name', 'like', "%{$search}%");
+                  });
+            });
+        }
+
+        $customers = $query->orderBy('updated_at', 'desc')->get();
+
+        $filename = "customers_export_" . date('Y-m-d_H-i-s') . ".csv";
+
+        $headers = [
+            "Content-type"        => "text/csv",
+            "Content-Disposition" => "attachment; filename=$filename",
+            "Pragma"              => "no-cache",
+            "Cache-Control"       => "must-revalidate, post-check=0, pre-check=0",
+            "Expires"             => "0"
+        ];
+
+        // The exact columns expected by bulk upload
+        $columns = [
+            'Name', 'Father Name', 'Gotra', 'Label Name', 'District', 'MS Firm Name', 'DNo', 'Street/Road', 'Address2', 
+            'City/Village', 'Pincode', 'Mobile', 'Whatsapp', 'Email', 'Age', 'Gender', 'Business Type', 'Business Name', 
+            'Product/Service', 'Office Address', 'Date Of Birth', 'Anniversary Date', 'Education', 'Occupation', 
+            'Blood Group', 'Hobbies', 'Native Place', 'Status', 'Area', 'State'
+        ];
+
+        $callback = function() use($customers, $columns) {
+            $file = fopen('php://output', 'w');
+            fputcsv($file, $columns);
+
+            foreach ($customers as $customer) {
+                $row = [
+                    $customer->name,
+                    $customer->father_name,
+                    $customer->gotra,
+                    $customer->label_name,
+                    $customer->district,
+                    $customer->ms_firm_name,
+                    $customer->dno,
+                    $customer->street_road,
+                    $customer->address2,
+                    $customer->village ? $customer->village->name : $customer->city, // City/Village mapping
+                    $customer->pincode,
+                    $customer->mobile,
+                    $customer->whatsapp,
+                    $customer->email,
+                    $customer->age,
+                    $customer->gender,
+                    $customer->business_type,
+                    $customer->business_name,
+                    $customer->product_service,
+                    $customer->office_address,
+                    $customer->date_of_birth,
+                    $customer->anniversary_date,
+                    $customer->education,
+                    $customer->occupation,
+                    $customer->blood_group,
+                    $customer->hobbies,
+                    $customer->native_place,
+                    $customer->status,
+                    $customer->area,
+                    $customer->state
+                ];
+                fputcsv($file, $row);
+            }
+            fclose($file);
+        };
+
+        return response()->stream($callback, 200, $headers);
     }
 
     /**
@@ -545,7 +726,7 @@ class CustomerController extends Controller
             // 5. Fire a direct, lightweight HTTP request, bypassing all local package vendor code
             $client = new \GuzzleHttp\Client();
             // Restored the appended query key string as required by Gemini API
-            $url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=" . $apiKey;
+            $url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash-lite:generateContent?key=" . $apiKey;
             $response = $client->post($url, [
                 'json' => $payload,
                 'headers' => [

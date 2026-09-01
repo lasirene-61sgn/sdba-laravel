@@ -35,6 +35,13 @@ class FamilyMember extends Model
     ];
 
     /**
+     * All of the relationships to be touched.
+     *
+     * @var array
+     */
+    protected $touches = ['customer'];
+
+    /**
      * Get the customer that owns this family member.
      */
     public function customer()

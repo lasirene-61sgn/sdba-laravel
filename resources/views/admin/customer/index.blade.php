@@ -131,6 +131,13 @@
                 </svg>
                 Bulk Upload
             </a>
+
+            <a href="{{ route('admin.customers.export', ['search' => request('search')]) }}" class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-yellow-600 hover:bg-yellow-700 transition duration-150 ease-in-out shadow-sm no-print">
+                <svg class="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                </svg>
+                Export Excel
+            </a>
             
             <a href="{{ route('admin.customer.scan-create-form') }}" class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-purple-600 hover:bg-purple-700 transition duration-150 ease-in-out shadow-sm no-print">
                 <svg class="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -139,6 +146,26 @@
                 Scan & Create Customer
             </a>
         </div>
+    </div>
+
+    {{-- Search Form --}}
+    <div class="mb-6 no-print">
+        <form id="search-form" action="{{ route('admin.customers.index') }}" method="GET" class="flex flex-col md:flex-row gap-3 items-center">
+            <div class="relative w-full md:w-1/3">
+                <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                    <svg class="h-5 w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                    </svg>
+                </div>
+                <input type="text" id="live-search" name="search" value="{{ request('search') }}" placeholder="Search by name, mobile, area, village..." class="pl-10 w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm py-2 transition duration-150 ease-in-out">
+            </div>
+            <button type="submit" class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 shadow-sm transition duration-150 ease-in-out">
+                Search
+            </button>
+            <a href="{{ route('admin.customers.index') }}" id="clear-search" class="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 shadow-sm transition duration-150 ease-in-out {{ request('search') ? '' : 'hidden' }}">
+                Clear
+            </a>
+        </form>
     </div>
 
     @if (session('success'))
@@ -166,12 +193,12 @@
 
 
     {{-- Main Table View (Hidden in Print) --}}
-    <div class="bg-white rounded-xl shadow-lg border border-gray-100 overflow-hidden no-print">
+    <div id="customers-table-container" class="bg-white rounded-xl shadow-lg border border-gray-100 overflow-hidden no-print">
         <div class="overflow-x-auto">
             <table class="min-w-full divide-y divide-gray-200">
                 <thead class="bg-gray-50">
                     <tr>
-                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-[5%]">Admin ID</th>
+                        <!-- <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-[5%]">Admin ID</th> -->
                         @if(empty($fieldPermissions) || in_array('name', $fieldPermissions))
                         <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-[20%]">Name</th>
                         @endif
@@ -194,7 +221,7 @@
                 <tbody class="bg-white divide-y divide-gray-200">
                     @forelse ($customers as $customer)
                     <tr class="hover:bg-gray-50">
-                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{{ $customer->admin_customer_id }}</td>
+                        <!-- <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{{ $customer->admin_customer_id }}</td> -->
                         @if(empty($fieldPermissions) || in_array('name', $fieldPermissions))
                         <td class="px-6 py-4 whitespace-nowrap">
                             <strong class="text-gray-800 block">{{ $customer->name }}</strong>
@@ -285,7 +312,7 @@
     </div>
 
     {{-- Pagination Links --}}
-    <div class="flex justify-center mt-4 pagination no-print">
+    <div id="customers-pagination-container" class="flex justify-center mt-4 pagination no-print">
         {{ $customers->links() }}
     </div>
 
@@ -346,4 +373,76 @@
         @endforelse
     </div>
 </div>
+
+@section('scripts')
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    let searchTimeout;
+    const searchInput = document.getElementById('live-search');
+    const tableContainer = document.getElementById('customers-table-container');
+    const paginationContainer = document.getElementById('customers-pagination-container');
+    const clearBtn = document.getElementById('clear-search');
+
+    if (searchInput) {
+        searchInput.addEventListener('input', function() {
+            clearTimeout(searchTimeout);
+            let query = this.value;
+            
+            if (query.trim().length > 0) {
+                clearBtn.classList.remove('hidden');
+            } else {
+                clearBtn.classList.add('hidden');
+            }
+
+            searchTimeout = setTimeout(() => {
+                fetchCustomers(query);
+            }, 500); // 500ms debounce
+        });
+    }
+
+    function fetchCustomers(query) {
+        if (!tableContainer) return;
+        
+        // Add a simple loading state
+        tableContainer.style.opacity = '0.5';
+        tableContainer.style.transition = 'opacity 0.2s';
+
+        const url = new URL(window.location.origin + window.location.pathname);
+        if (query) {
+            url.searchParams.set('search', query);
+        }
+        
+        // Update URL to match search without reloading
+        window.history.pushState({}, '', url);
+
+        fetch(url, {
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest'
+            }
+        })
+        .then(response => response.text())
+        .then(html => {
+            const parser = new DOMParser();
+            const doc = parser.parseFromString(html, 'text/html');
+            
+            const newTable = doc.getElementById('customers-table-container');
+            const newPagination = doc.getElementById('customers-pagination-container');
+            
+            if (newTable) {
+                tableContainer.innerHTML = newTable.innerHTML;
+            }
+            if (newPagination && paginationContainer) {
+                paginationContainer.innerHTML = newPagination.innerHTML;
+            }
+            
+            tableContainer.style.opacity = '1';
+        })
+        .catch(error => {
+            console.error('Error fetching customers:', error);
+            tableContainer.style.opacity = '1';
+        });
+    }
+});
+</script>
+@endsection
 @endsection

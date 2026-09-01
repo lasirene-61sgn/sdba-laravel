@@ -209,6 +209,7 @@ Route::prefix('admin')->middleware(['committee.member.auth'])->group(function ()
 
     // Route handling the backend Gemini processing
     Route::post('/customer/scan-card', [CustomerController::class, 'scanCard'])->name('admin.customer.scan-card');
+    Route::post('/customer/store-multiple', [CustomerController::class, 'storeMultiple'])->name('admin.customer.store-multiple');
 
 
     // Explicitly add 'admin.' to the name chain so it matches your Blade files!
@@ -230,6 +231,7 @@ Route::prefix('customer/{customer}/family')->name('admin.customer.family.')->gro
     Route::post('committee/bulk-upload', [CommitteePersonController::class, 'bulkUpload'])->name('committee.bulk_upload');
     Route::resource('committee', CommitteePersonController::class)->names('admin.committee')->parameters(['committee' => 'committeePerson']);
     // Customer Management Routes
+    Route::get('customers/export', [CustomerController::class, 'export'])->name('admin.customers.export');
     Route::resource('customers', CustomerController::class)->names('admin.customers');
 
     // Customer Plan Management Routes
