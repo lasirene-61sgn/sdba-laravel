@@ -464,106 +464,210 @@ class CustomerController extends Controller
     /**
      * API 3: List Customers filtered by State, City, and Search Keywords
      */
+    // public function listCustomers(Request $request)
+    // {
+    //     $customer = Auth::guard('sanctum')->user();
+
+    //     // 1. Validate the logged-in customer/user
+    //     if (!$customer || !$customer->admin_id) {
+    //         return response()->json([
+    //             'status' => 'error',
+    //             'message' => 'Invalid customer data.'
+    //         ], 400);
+    //     }
+
+    //     // 2. Get search parameter
+    //     $search = $request->query('search');
+
+    //     // 3. Base Query to Eager Load relations
+    //     $query = Customer::with(['village', 'familyMembers'])
+    //         ->where('admin_id', $customer->admin_id);
+
+    //     // 4. Apply search filter
+    //     if ($search) {
+    //         $query->where(function ($q) use ($search) {
+    //             $q->where('name', 'LIKE', '%' . $search . '%')
+    //                 ->orWhere('mobile', 'LIKE', '%' . $search . '%')
+    //                 ->orWhere('whatsapp', 'LIKE', '%' . $search . '%')
+    //                 ->orWhere('email', 'LIKE', '%' . $search . '%')
+    //                 ->orWhere('business_name', 'LIKE', '%' . $search . '%')
+    //                 ->orWhere('business_type', 'LIKE', '%' . $search . '%')
+    //                 ->orWhere('gotra', 'LIKE', '%' . $search . '%')
+    //                 ->orWhere('father_name', 'LIKE', '%' . $search . '%');
+    //         });
+    //     }
+
+    //     $customers = $query->get();
+
+    //     // 5. Get IDs of all customers under this admin that this user HAS NOT seen yet
+    //     $unseenCustomerIds = Customer::where('admin_id', $customer->admin_id)
+    //         ->whereDoesntHave('viewers', function ($q) use ($customer) {
+    //             $q->where('user_id', $customer->id);
+    //         })
+    //         ->pluck('id')
+    //         ->toArray();
+
+    //     // The count of new items before we clear them
+    //     $newCustomersCount = count($unseenCustomerIds);
+
+    //     // 6. FORCE INSERT INTO PIVOT TABLE DIRECTLY
+    //     if ($newCustomersCount > 0) {
+    //         $insertData = [];
+    //         foreach ($unseenCustomerIds as $id) {
+    //             $insertData[] = [
+    //                 'user_id' => $customer->id,
+    //                 'customer_id' => $id,
+    //                 'created_at' => \Carbon\Carbon::now(),
+    //                 'updated_at' => \Carbon\Carbon::now(),
+    //             ];
+    //         }
+
+    //         // insertOrIgnore prevents errors if a duplicate entry tries to insert
+    //         DB::table('customer_views')->insertOrIgnore($insertData);
+    //     }
+
+    //     // Convert to array to transform fields safely
+    //     $formattedCustomers = $customers->toArray();
+
+    //     foreach ($formattedCustomers as &$item) {
+    //         // Format Dates
+    //         if (!empty($item['date_of_birth'])) {
+    //             $item['date_of_birth'] = \Carbon\Carbon::parse($item['date_of_birth'])->toIso8601String();
+    //         }
+    //         if (!empty($item['anniversary_date'])) {
+    //             $item['anniversary_date'] = \Carbon\Carbon::parse($item['anniversary_date'])->toIso8601String();
+    //         }
+
+    //         // GUARANTEE FULL IMAGE URLS
+    //         if (!empty($item['image'])) {
+    //             $item['image'] = (strpos($item['image'], 'http') === 0) ? $item['image'] : (
+    //                 (strpos($item['image'], 'uploads/') === 0) ? url($item['image']) : url('storage/' . $item['image'])
+    //             );
+    //         } else {
+    //             $item['image'] = null;
+    //         }
+
+    //         if (!empty($item['background_image'])) {
+    //             $item['background_image'] = (strpos($item['background_image'], 'http') === 0) ? $item['background_image'] : (
+    //                 (strpos($item['background_image'], 'uploads/') === 0) ? url($item['background_image']) : url('storage/' . $item['background_image'])
+    //             );
+    //         } else {
+    //             $item['background_image'] = null;
+    //         }
+    //     }
+
+    //     // 7. Return response
+    //     return response()->json([
+    //         'status' => 'success',
+    //         'total_count' => count($formattedCustomers),
+    //         'new_items_count' => $newCustomersCount,
+    //         'data' => $formattedCustomers
+    //     ]);
+    // }
+
     public function listCustomers(Request $request)
-    {
-        $customer = Auth::guard('sanctum')->user();
+{
+    $customer = Auth::guard('sanctum')->user();
 
-        // 1. Validate the logged-in customer/user
-        if (!$customer || !$customer->admin_id) {
-            return response()->json([
-                'status' => 'error',
-                'message' => 'Invalid customer data.'
-            ], 400);
-        }
-
-        // 2. Get search parameter
-        $search = $request->query('search');
-
-        // 3. Base Query to Eager Load relations
-        $query = Customer::with(['village', 'familyMembers'])
-            ->where('admin_id', $customer->admin_id);
-
-        // 4. Apply search filter
-        if ($search) {
-            $query->where(function ($q) use ($search) {
-                $q->where('name', 'LIKE', '%' . $search . '%')
-                    ->orWhere('mobile', 'LIKE', '%' . $search . '%')
-                    ->orWhere('whatsapp', 'LIKE', '%' . $search . '%')
-                    ->orWhere('email', 'LIKE', '%' . $search . '%')
-                    ->orWhere('business_name', 'LIKE', '%' . $search . '%')
-                    ->orWhere('business_type', 'LIKE', '%' . $search . '%')
-                    ->orWhere('gotra', 'LIKE', '%' . $search . '%')
-                    ->orWhere('father_name', 'LIKE', '%' . $search . '%');
-            });
-        }
-
-        $customers = $query->get();
-
-        // 5. Get IDs of all customers under this admin that this user HAS NOT seen yet
-        $unseenCustomerIds = Customer::where('admin_id', $customer->admin_id)
-            ->whereDoesntHave('viewers', function ($q) use ($customer) {
-                $q->where('user_id', $customer->id);
-            })
-            ->pluck('id')
-            ->toArray();
-
-        // The count of new items before we clear them
-        $newCustomersCount = count($unseenCustomerIds);
-
-        // 6. FORCE INSERT INTO PIVOT TABLE DIRECTLY
-        if ($newCustomersCount > 0) {
-            $insertData = [];
-            foreach ($unseenCustomerIds as $id) {
-                $insertData[] = [
-                    'user_id' => $customer->id,
-                    'customer_id' => $id,
-                    'created_at' => \Carbon\Carbon::now(),
-                    'updated_at' => \Carbon\Carbon::now(),
-                ];
-            }
-
-            // insertOrIgnore prevents errors if a duplicate entry tries to insert
-            DB::table('customer_views')->insertOrIgnore($insertData);
-        }
-
-        // Convert to array to transform fields safely
-        $formattedCustomers = $customers->toArray();
-
-        foreach ($formattedCustomers as &$item) {
-            // Format Dates
-            if (!empty($item['date_of_birth'])) {
-                $item['date_of_birth'] = \Carbon\Carbon::parse($item['date_of_birth'])->toIso8601String();
-            }
-            if (!empty($item['anniversary_date'])) {
-                $item['anniversary_date'] = \Carbon\Carbon::parse($item['anniversary_date'])->toIso8601String();
-            }
-
-            // GUARANTEE FULL IMAGE URLS
-            if (!empty($item['image'])) {
-                $item['image'] = (strpos($item['image'], 'http') === 0) ? $item['image'] : (
-                    (strpos($item['image'], 'uploads/') === 0) ? url($item['image']) : url('storage/' . $item['image'])
-                );
-            } else {
-                $item['image'] = null;
-            }
-
-            if (!empty($item['background_image'])) {
-                $item['background_image'] = (strpos($item['background_image'], 'http') === 0) ? $item['background_image'] : (
-                    (strpos($item['background_image'], 'uploads/') === 0) ? url($item['background_image']) : url('storage/' . $item['background_image'])
-                );
-            } else {
-                $item['background_image'] = null;
-            }
-        }
-
-        // 7. Return response
+    // 1. Validate the logged-in customer/user
+    if (!$customer || !$customer->admin_id) {
         return response()->json([
-            'status' => 'success',
-            'total_count' => count($formattedCustomers),
-            'new_items_count' => $newCustomersCount,
-            'data' => $formattedCustomers
-        ]);
+            'status' => 'error',
+            'message' => 'Invalid customer data.'
+        ], 400);
     }
+
+    // 2. Get search parameter
+    $search = $request->query('search');
+
+    // 3. Base Query to Eager Load relations
+    $query = Customer::with(['village', 'familyMembers'])
+        ->where('admin_id', $customer->admin_id);
+
+    // 4. Apply search filter
+    if ($search) {
+        $query->where(function ($q) use ($search) {
+            $q->where('name', 'LIKE', '%' . $search . '%')
+                ->orWhere('mobile', 'LIKE', '%' . $search . '%')
+                ->orWhere('whatsapp', 'LIKE', '%' . $search . '%')
+                ->orWhere('email', 'LIKE', '%' . $search . '%')
+                ->orWhere('business_name', 'LIKE', '%' . $search . '%')
+                ->orWhere('business_type', 'LIKE', '%' . $search . '%')
+                ->orWhere('gotra', 'LIKE', '%' . $search . '%')
+                ->orWhere('father_name', 'LIKE', '%' . $search . '%');
+        });
+    }
+
+    // Order alphabetically by name (A to Z)
+    $customers = $query->orderBy('name', 'asc')->get();
+
+    // 5. Get IDs of all customers under this admin that this user HAS NOT seen yet
+    $unseenCustomerIds = Customer::where('admin_id', $customer->admin_id)
+        ->whereDoesntHave('viewers', function ($q) use ($customer) {
+            $q->where('user_id', $customer->id);
+        })
+        ->pluck('id')
+        ->toArray();
+
+    // The count of new items before we clear them
+    $newCustomersCount = count($unseenCustomerIds);
+
+    // 6. FORCE INSERT INTO PIVOT TABLE DIRECTLY
+    if ($newCustomersCount > 0) {
+        $insertData = [];
+        $now = \Carbon\Carbon::now();
+        foreach ($unseenCustomerIds as $id) {
+            $insertData[] = [
+                'user_id' => $customer->id,
+                'customer_id' => $id,
+                'created_at' => $now,
+                'updated_at' => $now,
+            ];
+        }
+
+        // insertOrIgnore prevents errors if a duplicate entry tries to insert
+        DB::table('customer_views')->insertOrIgnore($insertData);
+    }
+
+    // Convert to array to transform fields safely
+    $formattedCustomers = $customers->toArray();
+
+    foreach ($formattedCustomers as &$item) {
+        // Format Dates
+        if (!empty($item['date_of_birth'])) {
+            $item['date_of_birth'] = \Carbon\Carbon::parse($item['date_of_birth'])->toIso8601String();
+        }
+        if (!empty($item['anniversary_date'])) {
+            $item['anniversary_date'] = \Carbon\Carbon::parse($item['anniversary_date'])->toIso8601String();
+        }
+
+        // GUARANTEE FULL IMAGE URLS
+        if (!empty($item['image'])) {
+            $item['image'] = (strpos($item['image'], 'http') === 0) ? $item['image'] : (
+                (strpos($item['image'], 'uploads/') === 0) ? url($item['image']) : url('storage/' . $item['image'])
+            );
+        } else {
+            $item['image'] = null;
+        }
+
+        if (!empty($item['background_image'])) {
+            $item['background_image'] = (strpos($item['background_image'], 'http') === 0) ? $item['background_image'] : (
+                (strpos($item['background_image'], 'uploads/') === 0) ? url($item['background_image']) : url('storage/' . $item['background_image'])
+            );
+        } else {
+            $item['background_image'] = null;
+        }
+    }
+    unset($item); // Break the reference
+
+    // 7. Return response
+    return response()->json([
+        'status' => 'success',
+        'total_count' => count($formattedCustomers),
+        'new_items_count' => $newCustomersCount,
+        'data' => $formattedCustomers
+    ]);
+}
 
     /**
      * Display details of a specific customer from the same admin
