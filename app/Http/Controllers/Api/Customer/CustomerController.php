@@ -566,108 +566,108 @@ class CustomerController extends Controller
     // }
 
     public function listCustomers(Request $request)
-{
-    $customer = Auth::guard('sanctum')->user();
+    {
+        $customer = Auth::guard('sanctum')->user();
 
-    // 1. Validate the logged-in customer/user
-    if (!$customer || !$customer->admin_id) {
+        // 1. Validate the logged-in customer/user
+        if (!$customer || !$customer->admin_id) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Invalid customer data.'
+            ], 400);
+        }
+
+        // 2. Get search parameter
+        $search = $request->query('search');
+
+        // 3. Base Query to Eager Load relations
+        $query = Customer::with(['village', 'familyMembers'])
+            ->where('admin_id', $customer->admin_id);
+
+        // 4. Apply search filter
+        if ($search) {
+            $query->where(function ($q) use ($search) {
+                $q->where('name', 'LIKE', '%' . $search . '%')
+                    ->orWhere('mobile', 'LIKE', '%' . $search . '%')
+                    ->orWhere('whatsapp', 'LIKE', '%' . $search . '%')
+                    ->orWhere('email', 'LIKE', '%' . $search . '%')
+                    ->orWhere('business_name', 'LIKE', '%' . $search . '%')
+                    ->orWhere('business_type', 'LIKE', '%' . $search . '%')
+                    ->orWhere('gotra', 'LIKE', '%' . $search . '%')
+                    ->orWhere('father_name', 'LIKE', '%' . $search . '%');
+            });
+        }
+
+        // Order alphabetically by name (A to Z)
+        $customers = $query->orderBy('name', 'asc')->get();
+
+        // 5. Get IDs of all customers under this admin that this user HAS NOT seen yet
+        $unseenCustomerIds = Customer::where('admin_id', $customer->admin_id)
+            ->whereDoesntHave('viewers', function ($q) use ($customer) {
+                $q->where('user_id', $customer->id);
+            })
+            ->pluck('id')
+            ->toArray();
+
+        // The count of new items before we clear them
+        $newCustomersCount = count($unseenCustomerIds);
+
+        // 6. FORCE INSERT INTO PIVOT TABLE DIRECTLY
+        if ($newCustomersCount > 0) {
+            $insertData = [];
+            $now = \Carbon\Carbon::now();
+            foreach ($unseenCustomerIds as $id) {
+                $insertData[] = [
+                    'user_id' => $customer->id,
+                    'customer_id' => $id,
+                    'created_at' => $now,
+                    'updated_at' => $now,
+                ];
+            }
+
+            // insertOrIgnore prevents errors if a duplicate entry tries to insert
+            DB::table('customer_views')->insertOrIgnore($insertData);
+        }
+
+        // Convert to array to transform fields safely
+        $formattedCustomers = $customers->toArray();
+
+        foreach ($formattedCustomers as &$item) {
+            // Format Dates
+            if (!empty($item['date_of_birth'])) {
+                $item['date_of_birth'] = \Carbon\Carbon::parse($item['date_of_birth'])->toIso8601String();
+            }
+            if (!empty($item['anniversary_date'])) {
+                $item['anniversary_date'] = \Carbon\Carbon::parse($item['anniversary_date'])->toIso8601String();
+            }
+
+            // GUARANTEE FULL IMAGE URLS
+            if (!empty($item['image'])) {
+                $item['image'] = (strpos($item['image'], 'http') === 0) ? $item['image'] : (
+                    (strpos($item['image'], 'uploads/') === 0) ? url($item['image']) : url('storage/' . $item['image'])
+                );
+            } else {
+                $item['image'] = null;
+            }
+
+            if (!empty($item['background_image'])) {
+                $item['background_image'] = (strpos($item['background_image'], 'http') === 0) ? $item['background_image'] : (
+                    (strpos($item['background_image'], 'uploads/') === 0) ? url($item['background_image']) : url('storage/' . $item['background_image'])
+                );
+            } else {
+                $item['background_image'] = null;
+            }
+        }
+        unset($item); // Break the reference
+
+        // 7. Return response
         return response()->json([
-            'status' => 'error',
-            'message' => 'Invalid customer data.'
-        ], 400);
+            'status' => 'success',
+            'total_count' => count($formattedCustomers),
+            'new_items_count' => $newCustomersCount,
+            'data' => $formattedCustomers
+        ]);
     }
-
-    // 2. Get search parameter
-    $search = $request->query('search');
-
-    // 3. Base Query to Eager Load relations
-    $query = Customer::with(['village', 'familyMembers'])
-        ->where('admin_id', $customer->admin_id);
-
-    // 4. Apply search filter
-    if ($search) {
-        $query->where(function ($q) use ($search) {
-            $q->where('name', 'LIKE', '%' . $search . '%')
-                ->orWhere('mobile', 'LIKE', '%' . $search . '%')
-                ->orWhere('whatsapp', 'LIKE', '%' . $search . '%')
-                ->orWhere('email', 'LIKE', '%' . $search . '%')
-                ->orWhere('business_name', 'LIKE', '%' . $search . '%')
-                ->orWhere('business_type', 'LIKE', '%' . $search . '%')
-                ->orWhere('gotra', 'LIKE', '%' . $search . '%')
-                ->orWhere('father_name', 'LIKE', '%' . $search . '%');
-        });
-    }
-
-    // Order alphabetically by name (A to Z)
-    $customers = $query->orderBy('name', 'asc')->get();
-
-    // 5. Get IDs of all customers under this admin that this user HAS NOT seen yet
-    $unseenCustomerIds = Customer::where('admin_id', $customer->admin_id)
-        ->whereDoesntHave('viewers', function ($q) use ($customer) {
-            $q->where('user_id', $customer->id);
-        })
-        ->pluck('id')
-        ->toArray();
-
-    // The count of new items before we clear them
-    $newCustomersCount = count($unseenCustomerIds);
-
-    // 6. FORCE INSERT INTO PIVOT TABLE DIRECTLY
-    if ($newCustomersCount > 0) {
-        $insertData = [];
-        $now = \Carbon\Carbon::now();
-        foreach ($unseenCustomerIds as $id) {
-            $insertData[] = [
-                'user_id' => $customer->id,
-                'customer_id' => $id,
-                'created_at' => $now,
-                'updated_at' => $now,
-            ];
-        }
-
-        // insertOrIgnore prevents errors if a duplicate entry tries to insert
-        DB::table('customer_views')->insertOrIgnore($insertData);
-    }
-
-    // Convert to array to transform fields safely
-    $formattedCustomers = $customers->toArray();
-
-    foreach ($formattedCustomers as &$item) {
-        // Format Dates
-        if (!empty($item['date_of_birth'])) {
-            $item['date_of_birth'] = \Carbon\Carbon::parse($item['date_of_birth'])->toIso8601String();
-        }
-        if (!empty($item['anniversary_date'])) {
-            $item['anniversary_date'] = \Carbon\Carbon::parse($item['anniversary_date'])->toIso8601String();
-        }
-
-        // GUARANTEE FULL IMAGE URLS
-        if (!empty($item['image'])) {
-            $item['image'] = (strpos($item['image'], 'http') === 0) ? $item['image'] : (
-                (strpos($item['image'], 'uploads/') === 0) ? url($item['image']) : url('storage/' . $item['image'])
-            );
-        } else {
-            $item['image'] = null;
-        }
-
-        if (!empty($item['background_image'])) {
-            $item['background_image'] = (strpos($item['background_image'], 'http') === 0) ? $item['background_image'] : (
-                (strpos($item['background_image'], 'uploads/') === 0) ? url($item['background_image']) : url('storage/' . $item['background_image'])
-            );
-        } else {
-            $item['background_image'] = null;
-        }
-    }
-    unset($item); // Break the reference
-
-    // 7. Return response
-    return response()->json([
-        'status' => 'success',
-        'total_count' => count($formattedCustomers),
-        'new_items_count' => $newCustomersCount,
-        'data' => $formattedCustomers
-    ]);
-}
 
     /**
      * Display details of a specific customer from the same admin
@@ -1005,7 +1005,7 @@ class CustomerController extends Controller
     /**
      * Display event items from the customer's admin
      */
-    
+
 
     /**
      * Display support items from the customer's admin
@@ -1030,18 +1030,74 @@ class CustomerController extends Controller
     {
         $customer = Auth::guard('sanctum')->user();
 
-        // 1. Fetch active committee members for this admin, ordered by state and manual sort_order
+        // 1. Fetch active committee members for this admin
         $committeeMembers = CommitteePerson::where('admin_id', $customer->admin_id)
             ->where('status', 'active')
             ->orderBy('state', 'asc')
             ->orderBy('sort_order', 'asc')
             ->get();
 
-        // 2. Map through items to keep all original fields and format the image URLs
-        $formattedMembers = $committeeMembers->map(function ($member) {
+        // Helper to calculate exact priority based on database `post_name` values
+        $getPriority = function ($postName) {
+            $clean = strtolower(trim($postName ?? ''));
+
+            if (empty($clean)) {
+                return 999;
+            }
+
+            // 1. President
+            if ($clean === 'president' || (str_contains($clean, 'presid') && !str_contains($clean, 'vice'))) {
+                return 1;
+            }
+
+            // 2. Vice President
+            if (str_contains($clean, 'vice')) {
+                return 2;
+            }
+
+            // 3. Secretary
+            if ($clean === 'secretary' || (str_contains($clean, 'secr') && !str_contains($clean, 'joint') && !str_contains($clean, 'join') && !str_contains($clean, 'jt'))) {
+                return 3;
+            }
+
+            // 4. Joint Secretary
+            if (str_contains($clean, 'joint secretary') || str_contains($clean, 'join') || str_contains($clean, 'jt secretary')) {
+                return 4;
+            }
+
+            // 5. Treasurer
+            if ($clean === 'treasurer' || ($clean === 'treasure') || (str_contains($clean, 'treas') && !str_contains($clean, 'joint') && !str_contains($clean, 'join') && !str_contains($clean, 'jt'))) {
+                return 5;
+            }
+
+            // 6. Joint Treasurer
+            if (str_contains($clean, 'joint treasurer') || str_contains($clean, 'joint treasure') || str_contains($clean, 'jt treasurer')) {
+                return 6;
+            }
+
+            // 7. Digital / Digital Team
+            if (str_contains($clean, 'digital')) {
+                return 7;
+            }
+
+            // 8. Team / Committee
+            if (str_contains($clean, 'team') || str_contains($clean, 'committee') || str_contains($clean, 'member')) {
+                return 8;
+            }
+
+            // 9. Advisory / Advisor
+            if (str_contains($clean, 'advisor') || str_contains($clean, 'advisory')) {
+                return 9;
+            }
+
+            return 999;
+        };
+
+        // 2. Map through items to format image URLs and assign dynamic priority
+        $formattedMembers = $committeeMembers->map(function ($member) use ($getPriority) {
             $memberArray = $member->toArray();
 
-            // Format the full image URL safely
+            // Format full image URL safely
             if ($member->image_path) {
                 $memberArray['image_path'] = (strpos($member->image_path, 'uploads/') === 0 || strpos($member->image_path, 'http') === 0)
                     ? $member->image_path
@@ -1053,14 +1109,25 @@ class CustomerController extends Controller
             // Maintain the 'image' alias compatibility
             $memberArray['image'] = $memberArray['image_path'];
 
-            // Determine the grouping key safely
+            // Grouping key
             $memberArray['group_state'] = $member->state ?: 'National';
+
+            // Calculate sorting priority from post_name
+            $memberArray['_priority'] = $getPriority($member->post_name);
 
             return $memberArray;
         });
 
-        // 3. Group the entire collection state-wise
-        $groupedData = $formattedMembers->groupBy('group_state');
+        // 3. Group state-wise and apply sorting
+        $groupedData = $formattedMembers->groupBy('group_state')->map(function ($stateMembers) {
+            return $stateMembers->sortBy([
+                ['_priority', 'asc'],
+                ['sort_order', 'asc']
+            ])->values()->map(function ($item) {
+                unset($item['_priority']); // Hide helper priority field from API response
+                return $item;
+            })->all();
+        });
 
         return response()->json([
             'status' => 'success',
@@ -1773,44 +1840,6 @@ class CustomerController extends Controller
         ]);
     }
 
-    /**
-     * Get all unique business names from customers
-     */
-    public function getBusinessCategories(Request $request)
-    {
-        $customer = Auth::guard('sanctum')->user();
-
-        if (!$customer || !$customer->admin_id) {
-            return response()->json([
-                'status' => 'error',
-                'message' => 'Invalid customer data.'
-            ], 400);
-        }
-
-        // Get unique business types and transform them into objects
-        $categories = Customer::where('admin_id', $customer->admin_id)
-            ->whereNotNull('business_type')
-            ->where('business_type', '!=', '')
-            ->distinct()
-            ->orderBy('business_type', 'asc')
-            ->pluck('business_type')
-            ->map(function ($type, $index) {
-                return [
-                    'id' => $index + 1, // Generate a temporary ID for the list
-                    'category_name' => $type
-                ];
-            });
-
-        return response()->json([
-            'status' => 'success',
-            'data' => $categories
-        ]);
-    }
-
-    /**
-     * Get business names - Updated to filter by category object name
-     * Call this as: api/customer/business-names?category=busines
-     */
     public function getBusinessNames(Request $request)
     {
         $customer = Auth::guard('sanctum')->user();
@@ -1822,17 +1851,16 @@ class CustomerController extends Controller
             ], 400);
         }
 
-        // Get the category from the request (sent when you click the list item)
-        $category = $request->query('category');
+        $category = $request->query('category_name') ?? $request->query('category');
         $search = $request->query('search');
 
-        $query = Customer::where('admin_id', $customer->admin_id)
+        $query = Customer::query()
             ->whereNotNull('business_name')
             ->where('business_name', '!=', '');
 
-        // IF CATEGORY IS CLICKED: filter the results
+        //  FIX: Filter by business_type column instead of business_name
         if ($category) {
-            $query->where('business_name', $category);
+            $query->where('business_type', $category);
         }
 
         if ($search) {
@@ -1876,7 +1904,7 @@ class CustomerController extends Controller
             ], 400);
         }
 
-        $customers = Customer::where('admin_id', $customer->admin_id)
+        $customers = Customer::query()
             ->where('business_name', $businessName)
             ->select('id', 'name', 'mobile', 'whatsapp', 'email', 'business_name', 'business_type', 'product_service', 'office_address', 'village_id')
             ->with('village:id,name')
@@ -1902,7 +1930,7 @@ class CustomerController extends Controller
             ], 400);
         }
 
-        $customers = Customer::where('admin_id', $customer->admin_id)
+        $customers = Customer::query()
             ->whereNotNull('business_name')
             ->where('business_name', '!=', '')
             ->select('id', 'name', 'mobile', 'whatsapp', 'email', 'business_name', 'business_type', 'product_service', 'office_address', 'village_id')
@@ -1937,7 +1965,7 @@ class CustomerController extends Controller
             ], 400);
         }
 
-        $customers = Customer::where('admin_id', $customer->admin_id)
+        $customers = Customer::query()
             ->where('business_name', $business)
             ->select('id', 'name', 'mobile', 'whatsapp', 'email', 'business_name', 'business_type', 'product_service', 'office_address', 'village_id')
             ->with('village:id,name')
@@ -1946,6 +1974,39 @@ class CustomerController extends Controller
         return response()->json([
             'status' => 'success',
             'data' => $customers
+        ]);
+    }
+
+
+
+    public function getBusinessCategories(Request $request)
+    {
+        $customer = Auth::guard('sanctum')->user();
+
+        if (!$customer || !$customer->admin_id) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Invalid customer data.'
+            ], 400);
+        }
+
+        // Get unique business types and transform them into objects
+        $categories = Customer::query()
+            ->whereNotNull('business_type')
+            ->where('business_type', '!=', '')
+            ->distinct()
+            ->orderBy('business_type', 'asc')
+            ->pluck('business_type')
+            ->map(function ($type, $index) {
+                return [
+                    'id' => $index + 1, // Generate a temporary ID for the list
+                    'category_name' => $type
+                ];
+            });
+
+        return response()->json([
+            'status' => 'success',
+            'data' => $categories
         ]);
     }
 
