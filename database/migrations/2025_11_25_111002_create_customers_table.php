@@ -28,6 +28,7 @@ return new class extends Migration
             $table->string('pincode')->nullable();
             $table->string('mobile');
             $table->string('whatsapp')->nullable();
+            $table->string('background_image')->nullable();
             $table->string('state')->nullable();
             $table->enum('status',['active','inactive'])->default('active');
             $table->timestamps();

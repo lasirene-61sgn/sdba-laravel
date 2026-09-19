@@ -76,6 +76,7 @@
         <form action="{{ route('admin.customer.update', $customer->id) }}" method="POST" enctype="multipart/form-data">
             @csrf
             @method('PUT')
+            <input type="hidden" name="previous_url" value="{{ old('previous_url', url()->previous()) }}">
 
             {{-- Personal Details Row 1 (Name, Image, Father Name, Gotra) --}}
             <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-6">
@@ -102,10 +103,26 @@
                         name="image">
                     @if($customer->image)
                     <div class="mt-2">
-                        <img src="{{ asset('storage/' . $customer->image) }}" alt="Customer Image" class="w-24 h-24 object-cover rounded-md border border-gray-200">
+                        <img src="{{ asset(strpos($customer->image, 'uploads/') === 0 ? $customer->image : 'storage/' . $customer->image) }}" alt="Customer Image" class="w-24 h-24 object-cover rounded-md border border-gray-200">
                     </div>
                     @endif
                     @error('image')<p class="mt-2 text-sm text-red-600">{{ $message }}</p>@enderror
+                </div>
+                @endif
+                
+                @if(empty($fieldPermissions) || in_array('background_image', $fieldPermissions))
+                <div class="mb-3 md:mb-0">
+                    <label for="background_image" class="block text-sm font-medium text-gray-700 mb-1 form-label">Background Image</label>
+                    <input type="file"
+                        class="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 cursor-pointer @error('background_image') border-red-500 @enderror"
+                        id="background_image"
+                        name="background_image">
+                    @if($customer->background_image)
+                    <div class="mt-2">
+                        <img src="{{ asset(strpos($customer->background_image, 'uploads/') === 0 ? $customer->background_image : 'storage/' . $customer->background_image) }}" alt="Customer Background Image" class="w-24 h-24 object-cover rounded-md border border-gray-200">
+                    </div>
+                    @endif
+                    @error('background_image')<p class="mt-2 text-sm text-red-600">{{ $message }}</p>@enderror
                 </div>
                 @endif
 
@@ -352,17 +369,141 @@
 
             {{-- Superadmin fields row 2 (Business Type, Business Name, Product/Service) --}}
             <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
-                @if(empty($fieldPermissions) || in_array('business_type', $fieldPermissions))
-                <div class="mb-3 md:mb-0">
-                    <label for="business_type" class="block text-sm font-medium text-gray-700 mb-1 form-label">Business Type</label>
-                    <input type="text"
-                        class="form-input-print w-full px-4 py-2 border rounded-lg shadow-sm focus:ring-indigo-500 focus:border-indigo-500 @error('business_type') border-red-500 @enderror"
-                        id="business_type"
-                        name="business_type"
-                        value="{{ old('business_type', $customer->business_type) }}">
-                    @error('business_type')<p class="mt-2 text-sm text-red-600">{{ $message }}</p>@enderror
-                </div>
-                @endif
+                @if(empty($fieldPermissions) || in_array('category_id', $fieldPermissions))
+<div class="mb-3 md:mb-0 mt-4">
+    <label for="category_id" class="block text-sm font-medium text-gray-700 mb-1 form-label">Category (Product/Service)</label>
+    
+    <select 
+        class="form-input-print w-full px-4 py-2 border rounded-lg shadow-sm focus:ring-indigo-500 focus:border-indigo-500 @error('category_id') border-red-500 @enderror"
+        id="category_id"
+        name="category_id"
+        onchange="fetchSubcategories(this.value); toggleOtherInput('category_id', 'category_other_container')">
+        <option value="">Select Category</option>
+        @php
+            $currentCategory = old('category_id', $customer->category_id ?? '');
+            $isOtherCategory = $currentCategory && !$categories->contains('id', $currentCategory) && $currentCategory != 'Others';
+        @endphp
+
+        @foreach($categories as $category)
+            <option value="{{ $category->id }}" {{ $currentCategory == $category->id ? 'selected' : '' }}>
+                {{ $category->name }}
+            </option>
+        @endforeach
+        <option value="Others" {{ $isOtherCategory || $currentCategory == 'Others' ? 'selected' : '' }}>Others</option>
+    </select>
+
+    <div id="category_other_container" class="mt-2 {{ $isOtherCategory || $currentCategory == 'Others' ? '' : 'hidden' }}">
+        <input type="text" 
+            class="form-input-print w-full px-4 py-2 border rounded-lg shadow-sm focus:ring-indigo-500 focus:border-indigo-500"
+            id="category_other"
+            name="category_id"
+            placeholder="Please enter custom category"
+            value="{{ $isOtherCategory ? $currentCategory : old('category_id') }}"
+            {{ $isOtherCategory || $currentCategory == 'Others' ? '' : 'disabled' }}>
+    </div>
+
+    @error('category_id')<p class="mt-2 text-sm text-red-600">{{ $message }}</p>@enderror
+</div>
+@endif
+
+@if(empty($fieldPermissions) || in_array('subcategory_id', $fieldPermissions))
+<div class="mb-3 md:mb-0 mt-4">
+    <label for="subcategory_id" class="block text-sm font-medium text-gray-700 mb-1 form-label">Subcategory (Business Type)</label>
+    
+    <select 
+        class="form-input-print w-full px-4 py-2 border rounded-lg shadow-sm focus:ring-indigo-500 focus:border-indigo-500 @error('subcategory_id') border-red-500 @enderror"
+        id="subcategory_id"
+        name="subcategory_id"
+        onchange="toggleOtherInput('subcategory_id', 'subcategory_other_container')">
+        <option value="">Select Subcategory</option>
+        @php
+            $currentSubcategory = old('subcategory_id', $customer->subcategory_id ?? '');
+            // We'll populate the options via AJAX below, but we can set the selected value.
+        @endphp
+        @if($currentSubcategory && $currentSubcategory != 'Others' && is_numeric($currentSubcategory))
+            <option value="{{ $currentSubcategory }}" selected>{{ $customer->subcategory->name ?? 'Selected' }}</option>
+        @endif
+        <option value="Others" {{ (!is_numeric($currentSubcategory) && $currentSubcategory) || $currentSubcategory == 'Others' ? 'selected' : '' }}>Others</option>
+    </select>
+
+    <div id="subcategory_other_container" class="mt-2 {{ (!is_numeric($currentSubcategory) && $currentSubcategory) || $currentSubcategory == 'Others' ? '' : 'hidden' }}">
+        <input type="text" 
+            class="form-input-print w-full px-4 py-2 border rounded-lg shadow-sm focus:ring-indigo-500 focus:border-indigo-500"
+            id="subcategory_other"
+            name="subcategory_id"
+            placeholder="Please enter custom subcategory"
+            value="{{ (!is_numeric($currentSubcategory) && $currentSubcategory) ? $currentSubcategory : '' }}"
+            {{ (!is_numeric($currentSubcategory) && $currentSubcategory) || $currentSubcategory == 'Others' ? '' : 'disabled' }}>
+    </div>
+
+    @error('subcategory_id')<p class="mt-2 text-sm text-red-600">{{ $message }}</p>@enderror
+</div>
+@endif 
+
+<script>
+function fetchSubcategories(categoryId) {
+    const subcategorySelect = document.getElementById('subcategory_id');
+    const subcategoryOtherContainer = document.getElementById('subcategory_other_container');
+    const subcategoryOtherInput = document.getElementById('subcategory_other');
+    
+    // Clear options except first
+    subcategorySelect.innerHTML = '<option value="">Select Subcategory</option>';
+    
+    if (categoryId === 'Others') {
+        subcategorySelect.innerHTML += '<option value="Others" selected>Others</option>';
+        subcategoryOtherContainer.classList.remove('hidden');
+        subcategoryOtherInput.disabled = false;
+        return;
+    }
+
+    if (!categoryId) return;
+
+    fetch(`/admin/api/categories/${categoryId}/subcategories`)
+        .then(response => response.json())
+        .then(data => {
+            let options = '<option value="">Select Subcategory</option>';
+            
+            // Common Subcategories
+            const commonSubs = ['Retail', 'Manufacturer', 'WholeSale', 'Services', 'Professional'];
+            commonSubs.forEach(sub => {
+                const selected = (sub == '{{ $customer->subcategory_id ?? "" }}') ? 'selected' : '';
+                options += `<option value="${sub}" ${selected}>${sub}</option>`;
+            });
+
+            data.forEach(sub => {
+                const selected = (sub.id == '{{ $customer->subcategory_id ?? "" }}') ? 'selected' : '';
+                options += `<option value="${sub.id}" ${selected}>${sub.name}</option>`;
+            });
+            options += '<option value="Others">Others</option>';
+            subcategorySelect.innerHTML = options;
+        });
+}
+
+function toggleOtherInput(selectId, containerId) {
+    const selectElement = document.getElementById(selectId);
+    const containerElement = document.getElementById(containerId);
+    const inputElement = document.getElementById(selectId === 'category_id' ? 'category_other' : 'subcategory_other');
+    
+    if (selectElement.value === 'Others') {
+        containerElement.classList.remove('hidden');
+        inputElement.disabled = false;
+        selectElement.name = ''; // Prevent sending 'Others'
+    } else {
+        containerElement.classList.add('hidden');
+        inputElement.disabled = true;
+        selectElement.name = selectId;
+        if (inputElement) inputElement.value = '';
+    }
+}
+
+// Initial fetch if category is already selected
+document.addEventListener('DOMContentLoaded', function() {
+    const categoryId = document.getElementById('category_id').value;
+    if (categoryId && categoryId !== 'Others') {
+        fetchSubcategories(categoryId);
+    }
+});
+</script>
 
                 @if(empty($fieldPermissions) || in_array('business_name', $fieldPermissions))
                 <div class="mb-3 md:mb-0">
@@ -373,18 +514,6 @@
                         name="business_name"
                         value="{{ old('business_name', $customer->business_name) }}">
                     @error('business_name')<p class="mt-2 text-sm text-red-600">{{ $message }}</p>@enderror
-                </div>
-                @endif
-
-                @if(empty($fieldPermissions) || in_array('product_service', $fieldPermissions))
-                <div class="mb-3 md:mb-0">
-                    <label for="product_service" class="block text-sm font-medium text-gray-700 mb-1 form-label">Product/Service</label>
-                    <input type="text"
-                        class="form-input-print w-full px-4 py-2 border rounded-lg shadow-sm focus:ring-indigo-500 focus:border-indigo-500 @error('product_service') border-red-500 @enderror"
-                        id="product_service"
-                        name="product_service"
-                        value="{{ old('product_service', $customer->product_service) }}">
-                    @error('product_service')<p class="mt-2 text-sm text-red-600">{{ $message }}</p>@enderror
                 </div>
                 @endif
             </div>
@@ -510,19 +639,6 @@
         @endif
     </div>
 
-    <div class="mb-3 md:mb-0">
-        <label for="background_image" class="block text-sm font-medium text-gray-700 mb-1 form-label">background_image</label>
-        <input type="file"
-            class="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 cursor-pointer @error('background_image') border-red-500 @enderror"
-            id="background_image"
-            name="background_image">
-        @if($customer->background_image)
-        <div class="mt-2">
-            <img src="{{ asset('storage/' . $customer->background_image) }}" alt="Customer background_image" class="w-24 h-24 object-cover rounded-md border border-gray-200">
-        </div>
-        @endif
-        @error('background_image')<p class="mt-2 text-sm text-red-600">{{ $message }}</p>@enderror
-    </div>
 
     {{-- Submission Buttons --}}
     <div class="pt-4 border-t border-gray-100 flex gap-3">

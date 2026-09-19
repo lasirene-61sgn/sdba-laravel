@@ -37,6 +37,8 @@ class Customer extends Authenticatable
         'age',
         'gender',
         'business_type',
+        'category_id',
+        'subcategory_id',
         'business_name',
         'product_service',
         'office_address',
@@ -49,6 +51,7 @@ class Customer extends Authenticatable
         'native_place',
         'status',
         'password',
+        'background_image',
         'otp',
         'otp_expires_at',
         'is_password_set',
@@ -120,6 +123,7 @@ class Customer extends Authenticatable
     {
         return $this->hasMany(\App\Models\Notification::class);
     }
+
     public function viewers()
     {
         return $this->belongsToMany(
@@ -129,5 +133,16 @@ class Customer extends Authenticatable
             'user_id'
         );
     }
+
+    public function category()
+    {
+        return $this->belongsTo(Category::class, 'category_id');
+    }
+
+    public function subcategory()
+    {
+        return $this->belongsTo(SubCategory::class, 'subcategory_id');
+    }
+    
 
 }

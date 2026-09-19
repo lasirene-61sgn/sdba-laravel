@@ -32,7 +32,7 @@ Route::prefix('admin')->group(function () {
 
         // Customers
         Route::apiResource('customers', CustomerController::class);
-        
+
 
         // Villages
         Route::apiResource('villages', VillageController::class);
@@ -63,7 +63,7 @@ Route::prefix('admin')->group(function () {
 
         // Notices
         Route::apiResource('notices', NoticeController::class);
-        
+
         // Test Notifications
         Route::post('/test-notifications/send-to-all', [\App\Http\Controllers\Api\Admin\TestNotificationController::class, 'sendTestNotificationToAllCustomers']);
     });
@@ -79,6 +79,10 @@ Route::prefix('customer')->group(function () {
     Route::post('/forgot-password-otp', [CustomerAuthController::class, 'sendForgotPasswordOTP']);
     Route::post('/reset-password', [CustomerAuthController::class, 'resetPassword']);
 
+    // Public Routes
+    Route::get('/categories', [CustomerApiController::class, 'getCategories']);
+    Route::get('/categories/{id}/subcategories', [CustomerApiController::class, 'getSubCategories']);
+
     // Protected Routes
     Route::middleware(['auth:sanctum'])->group(function () {
         // Customer Profile
@@ -92,9 +96,9 @@ Route::prefix('customer')->group(function () {
 
         // Customer List
         Route::get('/states', [CustomerApiController::class, 'listStates']);
-    Route::get('/cities', [CustomerApiController::class, 'listCities']);
+        Route::get('/cities', [CustomerApiController::class, 'listCities']);
         Route::get('/customers', [CustomerApiController::class, 'listCustomers']);
-         Route::post('/delete-account', [CustomerApiController::class, 'deleteProfile']);
+        Route::post('/delete-account', [CustomerApiController::class, 'deleteProfile']);
 
         // Customer Detail
         Route::get('/customers/{id}', [CustomerApiController::class, 'showCustomer']);
@@ -151,6 +155,7 @@ Route::prefix('customer')->group(function () {
 
         // Family Members
         Route::get('/family-members', [CustomerApiController::class, 'listFamilyMembers']);
+        Route::get('/family-members/bio-links', [CustomerApiController::class, 'listFamilyMemberBioLinks']);
         Route::get('/family-members/{id}', [CustomerApiController::class, 'showFamilyMember']);
         Route::post('/family-members', [CustomerApiController::class, 'createFamilyMember']);
         Route::put('/family-members/{id}', [CustomerApiController::class, 'updateFamilyMember']);
@@ -177,13 +182,13 @@ Route::prefix('customer')->group(function () {
         Route::get('/business-names/categories', [CustomerApiController::class, 'getBusinessCategories']);
         Route::get('/business-names', [CustomerApiController::class, 'getBusinessNames']);
         Route::post('/send-broadcast', [NotificationApiController::class, 'broadcastNotification']);
-        
+
         // Matrimony API
         Route::get('/customers-matrimony', [CustomerApiController::class, 'getCustomersWithMatrimony']);
-        
+
         // Helpline
         Route::get('/helpline', [CustomerApiController::class, 'helpline']);
-        
+
         // Logout
         Route::post('/logout', [CustomerAuthController::class, 'logout']);
     });

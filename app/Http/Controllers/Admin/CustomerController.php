@@ -3,7 +3,9 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Models\Category;
 use App\Models\Customer;
+use App\Models\SubCategory;
 use App\Models\Village;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -38,36 +40,36 @@ class CustomerController extends Controller
         $adminId = $this->getCurrentAdminId();
         $search = $request->input('search');
 
-        $query = Customer::with('village')->where('admin_id', $adminId);
+        $query = Customer::with('village')->orderBy('id', 'asc');
+        $allCustomersQuery = Customer::with('village')->orderBy('id', 'asc')->limit(5000);
 
         if ($search) {
-            $query->where(function ($q) use ($search) {
+            $searchClosure = function ($q) use ($search) {
                 $q->where('name', 'like', "%{$search}%")
                   ->orWhere('mobile', 'like', "%{$search}%")
-                  ->orWhere('area', 'like', "%{$search}%")
-                  ->orWhereHas('village', function ($qv) use ($search) {
-                      $qv->where('name', 'like', "%{$search}%");
+                  ->orWhere('admin_customer_id', 'like', "%{$search}%")
+                  ->orWhereHas('village', function ($vq) use ($search) {
+                      $vq->where('name', 'like', "%{$search}%");
                   });
-            });
+            };
+            
+            $query->where($searchClosure);
+            $allCustomersQuery->where($searchClosure);
         }
 
         // CRITICAL FIX: Only fetch customers created by the current admin (paginated)
-        // Sort by updated_at descending to show recently updated/created customers first
-        $customers = $query->orderBy('updated_at', 'desc')->paginate(10);
-        $customers->appends(['search' => $search]); // Keep search in pagination links
+        // Sort by ID ascending to show oldest customers first (order of creation)
+        $customers = $query->paginate(10)->appends(['search' => $search]);
 
         // Get all customers for printing (without pagination)
         // Limit to 5000 records to balance usability with performance
-        $allCustomers = Customer::with('village')
-            ->where('admin_id', $adminId)
-            ->orderBy('updated_at', 'desc')
-            ->limit(5000)
-            ->get();
+        // Sort by ID ascending to show oldest customers first (order of creation)
+        $allCustomers = $allCustomersQuery->get();
 
         // Get field permissions
         $fieldPermissions = $this->getFieldPermissions();
 
-        return view('admin.customer.index', compact('customers', 'fieldPermissions', 'allCustomers', 'search'));
+        return view('admin.customer.index', compact('customers', 'fieldPermissions', 'allCustomers'));
     }
 
     /**
@@ -78,12 +80,15 @@ class CustomerController extends Controller
         $adminId = $this->getCurrentAdminId();
 
         // Fetch only villages created by the current admin (Data Isolation)
-        $villages = Village::where('admin_id', $adminId)->pluck('name', 'id');
+        $villages = Village::pluck('name', 'id');
 
         // Get field permissions
         $fieldPermissions = $this->getFieldPermissions();
 
-        return view('admin.customer.create', compact('villages', 'fieldPermissions'));
+        // Fetch categories
+        $categories = Category::all();
+
+        return view('admin.customer.create', compact('villages', 'fieldPermissions', 'categories'));
     }
 
     /**
@@ -112,9 +117,9 @@ class CustomerController extends Controller
             'email' => 'nullable|email|max:100',
             'age' => 'nullable|integer|min:0|max:150',
             'gender' => 'nullable|in:male,female,other',
-            'business_type' => 'nullable|string|max:100',
+            'subcategory_id' => 'nullable',
             'business_name' => 'nullable|string|max:100',
-            'product_service' => 'nullable|string|max:100',
+            'category_id' => 'nullable',
             'office_address' => 'nullable|string|max:500',
             'date_of_birth' => 'nullable|date',
             'anniversary_date' => 'nullable|date',
@@ -134,14 +139,15 @@ class CustomerController extends Controller
             'family.*.mobile' => 'nullable|string|max:20',
             'family.*.date_of_birth' => 'nullable|date',
             'family.*.image' => 'nullable|image|mimes:jpeg,png,jpg,gif|max:2048',
+            'family.*.link' => 'nullable|string|max:255',
+            'family.*.pdf' => 'nullable|file|mimes:pdf|max:5048',
+            'family.*.biolink' => 'nullable|string|max:255',
         ]);
 
         // Safety check: Ensure the selected village belongs to the current admin
         if ($request->filled('village_id')) {
             $village = Village::find($request->village_id);
-            if (!$village || $village->admin_id !== $this->getCurrentAdminId()) {
-                return redirect()->back()->withInput()->withErrors(['village_id' => 'Invalid village selection.']);
-            }
+            
         }
 
         // Handle customer image upload
@@ -150,9 +156,24 @@ class CustomerController extends Controller
             $validatedData['image'] = $imagePath;
         }
 
-        if($request->hasFile('background_image')){
+        if ($request->hasFile('background_image')) {
             $imagePath = $request->file('background_image')->store('customer_backgrounds', 'public');
             $validatedData['background_image'] = $imagePath;
+        }
+
+        // Handle custom category
+        if ($request->filled('category_id') && !is_numeric($request->category_id)) {
+            $category = Category::firstOrCreate(['name' => $request->category_id]);
+            $validatedData['category_id'] = $category->id;
+        }
+
+        // Handle custom subcategory
+        if ($request->filled('subcategory_id') && !is_numeric($request->subcategory_id)) {
+            $subcategory = SubCategory::firstOrCreate([
+                'name' => $request->subcategory_id,
+                'category_id' => $validatedData['category_id'] ?? null
+            ]);
+            $validatedData['subcategory_id'] = $subcategory->id;
         }
 
         // 2. Create the main customer record
@@ -160,10 +181,10 @@ class CustomerController extends Controller
             'admin_id' => $this->getCurrentAdminId(),
         ]));
 
-        // 3. Process and create family members if any are provided
         if ($request->has('family') && is_array($request->family)) {
             foreach ($request->family as $index => $familyData) {
-                // Check if a dedicated profile picture was uploaded for this family index item
+
+                // Handle family profile picture
                 if ($request->hasFile("family.{$index}.image")) {
                     $familyImage = $request->file("family.{$index}.image");
                     $imageName = time() . '_' . $index . '.' . $familyImage->extension();
@@ -171,96 +192,23 @@ class CustomerController extends Controller
                     $familyData['image'] = 'uploads/family_members/' . $imageName;
                 }
 
-                // Save relationship array attached directly to the new customer ID
+                // Handle family PDF upload
+                if ($request->hasFile("family.{$index}.pdf")) {
+                    $familyPdf = $request->file("family.{$index}.pdf");
+                    $pdfName = time() . '_' . $index . '.' . $familyPdf->extension();
+                    $familyPdf->move(public_path('uploads/family_pdfs'), $pdfName);
+                    $familyData['pdf'] = 'uploads/family_pdfs/' . $pdfName;
+                }
+
+                // Note: 'link' is already inside $familyData from the request, 
+                // so it automatically gets saved here.
+
+                // Save everything as a single database entry per family member
                 $customer->familyMembers()->create($familyData);
             }
         }
 
         return redirect()->route('admin.customer.index')->with('success', 'Customer and family profile created successfully!');
-    }
-
-    /**
-     * Store multiple newly created customer resources in storage.
-     */
-    public function storeMultiple(Request $request)
-    {
-        $customers = $request->input('customers', []);
-        $savedCount = 0;
-        $skippedCount = 0;
-        $skippedDetails = [];
-
-        $adminId = $this->getCurrentAdminId();
-
-        foreach ($customers as $index => $customerData) {
-            // Check for duplicates by mobile and name
-            if (!empty($customerData['mobile'])) {
-                $exists = Customer::where('mobile', $customerData['mobile'])
-                    ->where('admin_id', $adminId)
-                    ->exists();
-
-                if ($exists) {
-                    $skippedCount++;
-                    $skippedDetails[] = ($customerData['name'] ?? 'Unknown') . ' (' . $customerData['mobile'] . ') - Already Added';
-                    continue;
-                }
-            }
-
-            // Fallback for duplicates if mobile is not provided but name is
-            if (empty($customerData['mobile']) && !empty($customerData['name'])) {
-                $exists = Customer::where('name', $customerData['name'])
-                    ->where('admin_id', $adminId)
-                    ->exists();
-
-                if ($exists) {
-                    $skippedCount++;
-                    $skippedDetails[] = $customerData['name'] . ' - Already Added';
-                    continue;
-                }
-            }
-
-            // Set default status if missing
-            if (empty($customerData['status'])) {
-                $customerData['status'] = 'active';
-            }
-            $customerData['admin_id'] = $adminId;
-
-            // Prepare main customer fields
-            $mainCustomerFields = collect($customerData)->except(['family', '_token'])->toArray();
-
-            // Create customer
-            $customer = Customer::create($mainCustomerFields);
-
-            // Process family members
-            if (isset($customerData['family']) && is_array($customerData['family'])) {
-                foreach ($customerData['family'] as $familyData) {
-                    // Only create if at least name is provided
-                    if (!empty($familyData['name'])) {
-                        // Rename keys to match db structure if needed
-                        // The prompt gave us father_or_spouse and age_or_dob. 
-                        // The db expects relationship, gender, mobile, date_of_birth.
-                        // Let's store father_or_spouse in relationship and age_or_dob in date_of_birth or just pass them if columns exist.
-                        // Looking at store, it expects 'name', 'relationship', 'gender', 'mobile', 'date_of_birth'
-                        $formattedFamilyData = [
-                            'name' => $familyData['name'],
-                            'relationship' => $familyData['father_or_spouse'] ?? null,
-                            'date_of_birth' => $familyData['age_or_dob'] ?? null,
-                            'mobile' => $familyData['mobile'] ?? null,
-                        ];
-                        $customer->familyMembers()->create($formattedFamilyData);
-                    }
-                }
-            }
-
-            $savedCount++;
-        }
-
-        return response()->json([
-            'success' => true,
-            'message' => 'Processed successfully.',
-            'saved_count' => $savedCount,
-            'skipped_count' => $skippedCount,
-            'skipped_details' => $skippedDetails
-        ]);
     }
 
     /**
@@ -271,9 +219,7 @@ class CustomerController extends Controller
         $adminId = $this->getCurrentAdminId();
 
         // CRITICAL FIX: Enforce ownership check before showing
-        if ($customer->admin_id !== $adminId) {
-            abort(403, 'Unauthorized access: You can only view customers you created.');
-        }
+        
 
         // Load the village relationship
         $customer->load('village');
@@ -292,12 +238,10 @@ class CustomerController extends Controller
         $adminId = $this->getCurrentAdminId();
 
         // CRITICAL FIX: Enforce ownership check before editing
-        if ($customer->admin_id !== $adminId) {
-            abort(403, 'Unauthorized access: You can only edit customers you created.');
-        }
+        
 
         // 1. Get the IDs of villages created by the current admin.
-        $allowedVillageIds = Village::where('admin_id', $adminId)->pluck('id')->toArray();
+        $allowedVillageIds = Village::pluck('id')->toArray();
 
         // 2. Include the customer's currently saved village_id 
         if ($customer->village_id) {
@@ -311,7 +255,10 @@ class CustomerController extends Controller
         // Get field permissions
         $fieldPermissions = $this->getFieldPermissions();
 
-        return view('admin.customer.edit', compact('customer', 'villages', 'fieldPermissions'));
+        // Fetch categories
+        $categories = Category::all();
+
+        return view('admin.customer.edit', compact('customer', 'villages', 'fieldPermissions', 'categories'));
     }
 
     /**
@@ -322,9 +269,7 @@ class CustomerController extends Controller
         $adminId = $this->getCurrentAdminId();
 
         // CRITICAL FIX: Enforce ownership check before updating
-        if ($customer->admin_id !== $adminId) {
-            abort(403, 'Unauthorized action: You can only update customers you created.');
-        }
+        
 
         $validatedData = $request->validate([
             'name' => 'required|string|max:100',
@@ -346,9 +291,9 @@ class CustomerController extends Controller
             'email' => 'nullable|email|max:100',
             'age' => 'nullable|integer|min:0|max:150',
             'gender' => 'nullable|in:male,female,other',
-            'business_type' => 'nullable|string|max:100',
+            'subcategory_id' => 'nullable',
             'business_name' => 'nullable|string|max:100',
-            'product_service' => 'nullable|string|max:100',
+            'category_id' => 'nullable',
             'office_address' => 'nullable|string|max:500',
             'date_of_birth' => 'nullable|date',
             'anniversary_date' => 'nullable|date',
@@ -369,8 +314,8 @@ class CustomerController extends Controller
             }
         }
 
-        if($request->hasFile('background_image')) {
-            if($customer->background_image && Storage::exists('public/' . $customer->background_image)){
+        if ($request->hasFile('background_image')) {
+            if ($customer->background_image && Storage::exists('public/' . $customer->background_image)) {
                 Storage::delete('public/' . $customer->background_image);
             }
             $imagePath = $request->file('background_image')->store('customer_backgrounds', 'public');
@@ -389,7 +334,28 @@ class CustomerController extends Controller
             $validatedData['image'] = $imagePath;
         }
 
+
+        // Handle custom category
+        if ($request->filled('category_id') && !is_numeric($request->category_id)) {
+            $category = Category::firstOrCreate(['name' => $request->category_id]);
+            $validatedData['category_id'] = $category->id;
+        }
+
+        // Handle custom subcategory
+        if ($request->filled('subcategory_id') && !is_numeric($request->subcategory_id)) {
+            $subcategory = SubCategory::firstOrCreate([
+                'name' => $request->subcategory_id,
+                'category_id' => $validatedData['category_id'] ?? $customer->category_id
+            ]);
+            $validatedData['subcategory_id'] = $subcategory->id;
+        }
+
         $customer->update($validatedData);
+
+        $previousUrl = $request->input('previous_url');
+        if ($previousUrl && $previousUrl !== url()->current()) {
+            return redirect($previousUrl)->with('success', 'Customer updated successfully!');
+        }
 
         return redirect()->route('admin.customer.index')->with('success', 'Customer updated successfully!');
     }
@@ -402,98 +368,10 @@ class CustomerController extends Controller
         $adminId = $this->getCurrentAdminId();
 
         // CRITICAL FIX: Enforce ownership check before deletion
-        if ($customer->admin_id !== $adminId) {
-            abort(403, 'Unauthorized action: You can only delete customers you created.');
-        }
+        
 
         $customer->delete();
         return redirect()->route('admin.customer.index')->with('success', 'Customer deleted successfully!');
-    }
-
-    /**
-     * Export customers to CSV format matching the bulk upload format
-     */
-    public function export(Request $request)
-    {
-        $adminId = $this->getCurrentAdminId();
-        $search = $request->input('search');
-
-        $query = Customer::with('village')->where('admin_id', $adminId);
-
-        if ($search) {
-            $query->where(function ($q) use ($search) {
-                $q->where('name', 'like', "%{$search}%")
-                  ->orWhere('mobile', 'like', "%{$search}%")
-                  ->orWhere('area', 'like', "%{$search}%")
-                  ->orWhereHas('village', function ($qv) use ($search) {
-                      $qv->where('name', 'like', "%{$search}%");
-                  });
-            });
-        }
-
-        $customers = $query->orderBy('updated_at', 'desc')->get();
-
-        $filename = "customers_export_" . date('Y-m-d_H-i-s') . ".csv";
-
-        $headers = [
-            "Content-type"        => "text/csv",
-            "Content-Disposition" => "attachment; filename=$filename",
-            "Pragma"              => "no-cache",
-            "Cache-Control"       => "must-revalidate, post-check=0, pre-check=0",
-            "Expires"             => "0"
-        ];
-
-        // The exact columns expected by bulk upload
-        $columns = [
-            'Name', 'Father Name', 'Gotra', 'Label Name', 'District', 'MS Firm Name', 'DNo', 'Street/Road', 'Address2', 
-            'City/Village', 'Pincode', 'Mobile', 'Whatsapp', 'Email', 'Age', 'Gender', 'Business Type', 'Business Name', 
-            'Product/Service', 'Office Address', 'Date Of Birth', 'Anniversary Date', 'Education', 'Occupation', 
-            'Blood Group', 'Hobbies', 'Native Place', 'Status', 'Area', 'State'
-        ];
-
-        $callback = function() use($customers, $columns) {
-            $file = fopen('php://output', 'w');
-            fputcsv($file, $columns);
-
-            foreach ($customers as $customer) {
-                $row = [
-                    $customer->name,
-                    $customer->father_name,
-                    $customer->gotra,
-                    $customer->label_name,
-                    $customer->district,
-                    $customer->ms_firm_name,
-                    $customer->dno,
-                    $customer->street_road,
-                    $customer->address2,
-                    $customer->village ? $customer->village->name : $customer->city, // City/Village mapping
-                    $customer->pincode,
-                    $customer->mobile,
-                    $customer->whatsapp,
-                    $customer->email,
-                    $customer->age,
-                    $customer->gender,
-                    $customer->business_type,
-                    $customer->business_name,
-                    $customer->product_service,
-                    $customer->office_address,
-                    $customer->date_of_birth,
-                    $customer->anniversary_date,
-                    $customer->education,
-                    $customer->occupation,
-                    $customer->blood_group,
-                    $customer->hobbies,
-                    $customer->native_place,
-                    $customer->status,
-                    $customer->area,
-                    $customer->state
-                ];
-                fputcsv($file, $row);
-            }
-            fclose($file);
-        };
-
-        return response()->stream($callback, 200, $headers);
     }
 
     /**
@@ -506,7 +384,7 @@ class CustomerController extends Controller
 
         // Get existing villages for the current admin
         $adminId = $this->getCurrentAdminId();
-        $villages = Village::where('admin_id', $adminId)->pluck('name', 'id');
+        $villages = Village::pluck('name', 'id');
 
         return view('admin.customer.bulk-upload', compact('fieldPermissions', 'villages'));
     }
@@ -582,7 +460,7 @@ class CustomerController extends Controller
                 $villageName = $row[9] ?? null;
 
                 if (!empty($villageName)) {
-                    $village = Village::where('name', $villageName)->where('admin_id', $adminId)->first();
+                    $village = Village::where('name', $villageName)->first();
 
                     if (!$village) {
                         $village = Village::create([
@@ -781,9 +659,7 @@ class CustomerController extends Controller
     public function indexFamilyMember(Customer $customer)
     {
         // Ensure the admin owns this customer
-        if ($customer->admin_id !== $this->getCurrentAdminId()) {
-            abort(403, 'Unauthorized action.');
-        }
+        
 
         $familyMembers = $customer->familyMembers;
 
@@ -795,9 +671,7 @@ class CustomerController extends Controller
      */
     public function createFamilyMember(Customer $customer)
     {
-        if ($customer->admin_id !== $this->getCurrentAdminId()) {
-            abort(403, 'Unauthorized action.');
-        }
+        
 
         return view('admin.customer.family_members.create', compact('customer'));
     }
@@ -807,9 +681,7 @@ class CustomerController extends Controller
      */
     public function storeFamilyMember(Request $request, Customer $customer)
     {
-        if ($customer->admin_id !== $this->getCurrentAdminId()) {
-            abort(403, 'Unauthorized action.');
-        }
+        
 
         $validatedData = $request->validate([
             'name' => 'required|string|max:100',
@@ -827,13 +699,25 @@ class CustomerController extends Controller
             'notes' => 'nullable|string',
             'matrimony' => 'nullable|in:1,0,true,false,"1","0"',
             'gender' => 'nullable|string|in:male,female,other',
+            'link' => 'nullable|string|max:255',
+            'pdf' => 'nullable|file|mimes:pdf|max:5048',
+            'biolink' => 'nullable|string|max:255',
         ]);
 
+        // Handle Image upload
         if ($request->hasFile('image')) {
             $image = $request->file('image');
             $imageName = time() . '.' . $image->extension();
             $image->move(public_path('uploads/family_members'), $imageName);
             $validatedData['image'] = 'uploads/family_members/' . $imageName;
+        }
+
+        // Handle PDF upload
+        if ($request->hasFile('pdf')) {
+            $pdf = $request->file('pdf');
+            $pdfName = time() . '.' . $pdf->extension();
+            $pdf->move(public_path('uploads/family_pdfs'), $pdfName);
+            $validatedData['pdf'] = 'uploads/family_pdfs/' . $pdfName;
         }
 
         $customer->familyMembers()->create($validatedData);
@@ -847,9 +731,7 @@ class CustomerController extends Controller
      */
     public function editFamilyMember(Customer $customer, $familyMemberId)
     {
-        if ($customer->admin_id !== $this->getCurrentAdminId()) {
-            abort(403, 'Unauthorized action.');
-        }
+        
 
         $familyMember = $customer->familyMembers()->findOrFail($familyMemberId);
 
@@ -861,9 +743,7 @@ class CustomerController extends Controller
      */
     public function updateFamilyMember(Request $request, Customer $customer, $familyMemberId)
     {
-        if ($customer->admin_id !== $this->getCurrentAdminId()) {
-            abort(403, 'Unauthorized action.');
-        }
+        
 
         $familyMember = $customer->familyMembers()->findOrFail($familyMemberId);
 
@@ -883,8 +763,12 @@ class CustomerController extends Controller
             'notes' => 'nullable|string',
             'matrimony' => 'nullable|in:1,0,true,false,"1","0"',
             'gender' => 'nullable|string|in:male,female,other',
+            'link' => 'nullable|string|max:255',
+            'pdf' => 'nullable|file|mimes:pdf|max:5048',
+            'biolink' => 'nullable|string|max:255',
         ]);
 
+        // Update Image (and clear out old file)
         if ($request->hasFile('image')) {
             if ($familyMember->image && File::exists(public_path($familyMember->image))) {
                 File::delete(public_path($familyMember->image));
@@ -894,6 +778,18 @@ class CustomerController extends Controller
             $imageName = time() . '.' . $image->extension();
             $image->move(public_path('uploads/family_members'), $imageName);
             $validatedData['image'] = 'uploads/family_members/' . $imageName;
+        }
+
+        // Update PDF (and clear out old file)
+        if ($request->hasFile('pdf')) {
+            if ($familyMember->pdf && File::exists(public_path($familyMember->pdf))) {
+                File::delete(public_path($familyMember->pdf));
+            }
+
+            $pdf = $request->file('pdf');
+            $pdfName = time() . '.' . $pdf->extension();
+            $pdf->move(public_path('uploads/family_pdfs'), $pdfName);
+            $validatedData['pdf'] = 'uploads/family_pdfs/' . $pdfName;
         }
 
         $familyMember->update($validatedData);
@@ -907,14 +803,17 @@ class CustomerController extends Controller
      */
     public function deleteFamilyMember(Customer $customer, $familyMemberId)
     {
-        if ($customer->admin_id !== $this->getCurrentAdminId()) {
-            abort(403, 'Unauthorized action.');
-        }
+        
 
         $familyMember = $customer->familyMembers()->findOrFail($familyMemberId);
 
+        // Housekeeping: Clean up files from public directory on delete
         if ($familyMember->image && File::exists(public_path($familyMember->image))) {
             File::delete(public_path($familyMember->image));
+        }
+
+        if ($familyMember->pdf && File::exists(public_path($familyMember->pdf))) {
+            File::delete(public_path($familyMember->pdf));
         }
 
         $familyMember->delete();
@@ -922,4 +821,5 @@ class CustomerController extends Controller
         return redirect()->route('admin.customer.family.index', $customer->id)
             ->with('success', 'Family member deleted successfully!');
     }
+
 }

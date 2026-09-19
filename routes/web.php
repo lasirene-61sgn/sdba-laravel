@@ -211,6 +211,9 @@ Route::prefix('admin')->middleware(['committee.member.auth'])->group(function ()
     Route::post('/customer/scan-card', [CustomerController::class, 'scanCard'])->name('admin.customer.scan-card');
     Route::post('/customer/store-multiple', [CustomerController::class, 'storeMultiple'])->name('admin.customer.store-multiple');
 
+    // Fetch subcategories for a given category
+    Route::get('/api/categories/{category}/subcategories', [\App\Http\Controllers\Admin\CategoryController::class, 'getSubcategories'])->name('admin.api.categories.subcategories');
+
 
     // Explicitly add 'admin.' to the name chain so it matches your Blade files!
 Route::prefix('customer/{customer}/family')->name('admin.customer.family.')->group(function () {

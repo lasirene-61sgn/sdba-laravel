@@ -41,6 +41,7 @@
                         <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Mobile</th>
                         <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Gender</th>
                         <th scope="col" class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Matrimony</th>
+                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Bio-Link</th>
                         <th scope="col" class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider w-[15%]">Actions</th>
                     </tr>
                 </thead>
@@ -90,6 +91,15 @@
                                 </span>
                             </td>
 
+                            {{-- Biolink Column --}}
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
+                                @if($member->biolink)
+                                    <a href="{{ $member->biolink }}" target="_blank" class="text-indigo-600 hover:text-indigo-900 underline">View Link</a>
+                                @else
+                                    —
+                                @endif
+                            </td>
+
                             {{-- Actions Column --}}
                             <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-center">
                                 <div class="flex space-x-3 justify-center items-center">
@@ -115,7 +125,7 @@
                         </tr>
                     @empty
                         <tr>
-                            <td colspan="7" class="px-6 py-12 text-center text-gray-500">
+                            <td colspan="8" class="px-6 py-12 text-center text-gray-500">
                                 <svg class="mx-auto h-12 w-12 text-gray-400 mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
                                 </svg>

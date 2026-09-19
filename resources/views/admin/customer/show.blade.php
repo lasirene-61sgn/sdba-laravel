@@ -85,7 +85,15 @@
                     
                     @if($customer->image)
                         <div class="mb-4">
-                            <img src="{{ asset('storage/' . $customer->image) }}" alt="Customer Image" class="w-48 h-auto object-cover rounded-lg border border-gray-200 shadow-sm">
+                            <h6 class="text-xs font-semibold text-gray-500 uppercase mb-1">Profile Image</h6>
+                            <img src="{{ asset(strpos($customer->image, 'uploads/') === 0 ? $customer->image : 'storage/' . $customer->image) }}" alt="Customer Image" class="w-48 h-auto object-cover rounded-lg border border-gray-200 shadow-sm">
+                        </div>
+                    @endif
+                    
+                    @if($customer->background_image)
+                        <div class="mb-4">
+                            <h6 class="text-xs font-semibold text-gray-500 uppercase mb-1">Background Image</h6>
+                            <img src="{{ asset(strpos($customer->background_image, 'uploads/') === 0 ? $customer->background_image : 'storage/' . $customer->background_image) }}" alt="Customer Background Image" class="w-48 h-auto object-cover rounded-lg border border-gray-200 shadow-sm">
                         </div>
                     @endif
                     

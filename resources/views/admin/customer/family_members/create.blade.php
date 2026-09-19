@@ -79,10 +79,32 @@
                         <input type="text" name="hobbies" class="form-control" value="{{ old('hobbies') }}" placeholder="Comma separated values">
                     </div>
 
+                    <!-- Added Link Field -->
+                    <div class="col-md-12">
+                        <label class="form-label">Profile/Social Link</label>
+                        <input type="url" name="link" class="form-control @error('link') is-invalid @enderror" value="{{ old('link') }}" placeholder="https://example.com">
+                        @error('link') <div class="invalid-feedback">{{ $message }}</div> @enderror
+                    </div>
+
+                    <div class="col-md-12">
+                        <label class="form-label">Bio Data Link</label>
+                        <input type="url" name="biolink" class="form-control @error('biolink') is-invalid @enderror" value="{{ old('biolink', 'https://happywed.co.in') }}" placeholder="https://example.com">
+                        @error('biolink')
+                        <div class="invalid-feedback">{{ $message }}</div>
+                        @enderror
+                    </div>
+
                     <div class="col-md-12">
                         <label class="form-label">Profile Image</label>
                         <input type="file" name="image" class="form-control @error('image') is-invalid @enderror">
                         @error('image') <div class="invalid-feedback">{{ $message }}</div> @enderror
+                    </div>
+
+                    <!-- Added PDF Field -->
+                    <div class="col-md-12">
+                        <label class="form-label">Attachment Document (PDF)</label>
+                        <input type="file" name="pdf" accept="application/pdf" class="form-control @error('pdf') is-invalid @enderror">
+                        @error('pdf') <div class="invalid-feedback">{{ $message }}</div> @enderror
                     </div>
 
                     <div class="col-md-12 my-2">

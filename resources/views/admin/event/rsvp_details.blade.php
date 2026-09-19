@@ -37,6 +37,9 @@
                 </span>
             </p>
             <p><strong>Total RSVPs:</strong> <span class="text-lg font-bold text-blue-600">{{ $rsvps->total() }}</span></p>
+            <p><strong>Total Adults:</strong> <span class="text-lg font-bold text-blue-600">{{ $event->totalAdultsCount() }}</span></p>
+            <p><strong>Total Children:</strong> <span class="text-lg font-bold text-blue-600">{{ $event->totalChildrenCount() }}</span></p>
+            <p><strong>Total Guests:</strong> <span class="text-lg font-bold text-green-600">{{ $event->totalAdultsCount() + $event->totalChildrenCount() }}</span></p>
         </div>
     </div>
     

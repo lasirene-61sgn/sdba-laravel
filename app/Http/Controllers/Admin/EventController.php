@@ -26,7 +26,7 @@ class EventController extends Controller
      */
     public function index()
     {
-        $events = Event::where('admin_id', $this->getAdminId())
+        $events = Event::query()
                        ->orderBy('posted_date', 'desc')
                        ->paginate(10); 
                                    
@@ -51,6 +51,7 @@ class EventController extends Controller
             'images.*' => 'image|mimes:jpeg,png,jpg,gif,svg|max:2048', // Validate each image
             'name' => 'required|string|max:200',
             'description' => 'nullable|string',
+            'date' => 'required|date',
             'posted_date' => 'required|date',
             'status' => 'required|in:active,inactive',
         ]);
@@ -69,6 +70,7 @@ class EventController extends Controller
             'admin_id' => $this->getAdminId(),
             'name' => $request->name,
             'description' => $request->description,
+            'date' => $request->date,
             'image_paths' => $imagePaths, // Store array of image paths
             'posted_date' => $request->posted_date,
             'status' => $request->status,
@@ -88,9 +90,7 @@ class EventController extends Controller
     public function edit(Event $event)
     {
         // Authorization check: Ensure admin can only edit their own entries
-        if ($event->admin_id !== $this->getAdminId()) {
-            abort(403);
-        }
+        
 
         return view('admin.event.edit', compact('event'));
     }
@@ -101,15 +101,14 @@ class EventController extends Controller
     public function update(Request $request, Event $event, NotificationsService $notificationService)
     {
         // Authorization check
-        if ($event->admin_id !== $this->getAdminId()) {
-            abort(403);
-        }
+        
         
         $request->validate([
             'images' => 'nullable|array', // Images are optional for update
             'images.*' => 'image|mimes:jpeg,png,jpg,gif,svg|max:2048', // Validate each image
             'name' => 'required|string|max:200',
             'description' => 'nullable|string',
+            'date' => 'required|date',
             'posted_date' => 'required|date',
             'status' => 'required|in:active,inactive',
         ]);
@@ -117,6 +116,7 @@ class EventController extends Controller
         $updateData = [
             'name' => $request->name,
             'description' => $request->description,
+            'date' => $request->date,
             'posted_date' => $request->posted_date,
             'status' => $request->status,
         ];
@@ -152,9 +152,7 @@ class EventController extends Controller
     public function destroy(Event $event)
     {
         // Authorization check
-        if ($event->admin_id !== $this->getAdminId()) {
-            abort(403);
-        }
+        
         
         // Delete all images
         foreach ($event->image_paths as $imagePath) {
@@ -172,9 +170,7 @@ class EventController extends Controller
     public function rsvpDetails(Event $event)
     {
         // Authorization check: Ensure admin can only view their own event RSVPs
-        if ($event->admin_id !== $this->getAdminId()) {
-            abort(403);
-        }
+        
         
         // Get all RSVPs for this event with customer details
         $rsvps = EventRSVP::where('event_id', $event->id)
@@ -191,9 +187,7 @@ class EventController extends Controller
     public function attendance(Event $event)
     {
         // Authorization check: Ensure admin can only view their own event attendance
-        if ($event->admin_id !== $this->getAdminId()) {
-            abort(403);
-        }
+        
         
         // Get only those who actually attended (attended = true) for this event with customer details
         $rsvps = EventRSVP::where('event_id', $event->id)
@@ -214,9 +208,7 @@ class EventController extends Controller
     public function rsvpReports(Event $event, Request $request)
     {
         // Authorization check: Ensure admin can only view their own event RSVPs
-        if ($event->admin_id !== $this->getAdminId()) {
-            abort(403);
-        }
+        
         
         $type = $request->query('type', 'accepted');
         

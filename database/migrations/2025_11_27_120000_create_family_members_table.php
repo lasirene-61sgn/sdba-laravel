@@ -22,6 +22,7 @@ return new class extends Migration
             $table->string('occupation')->nullable();
             $table->string('education')->nullable();
             $table->text('notes')->nullable();
+            $table->string('biolink')->nullable();
             $table->timestamps();
         });
     }

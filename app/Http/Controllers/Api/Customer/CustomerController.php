@@ -9,6 +9,7 @@ use App\Models\Customer;
 use App\Models\GalleryItem;
 use App\Models\CommitteePerson;
 use App\Models\Banner;
+use App\Models\Category;
 use App\Models\Notice;
 use App\Models\Village;
 use App\Models\Event;
@@ -21,9 +22,11 @@ use App\Models\PollResponse;
 use App\Models\EventRSVP;
 use App\Models\Helpline;
 use App\Models\Link;
+use App\Models\SubCategory;
 use App\Services\RealTimeNotificationService;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\File;
 
 class CustomerController extends Controller
 {
@@ -98,15 +101,20 @@ class CustomerController extends Controller
             'street_road' => 'nullable|string|max:150',
             'address2' => 'nullable|string|max:150',
             'city' => 'nullable|string|max:100',
+            'state' => 'nullable|string|max:255',
             'pincode' => 'nullable|string|max:10',
             'whatsapp' => 'nullable|string|max:20',
             'email' => 'nullable|email|max:100',
             'age' => 'nullable|integer|min:0|max:150',
             'gender' => 'nullable|in:male,female,other',
-            'business_type' => 'nullable|string|max:100',
+            'subcategory_id' => 'nullable',
             'business_name' => 'nullable|string|max:100',
-            'product_service' => 'nullable|string|max:100',
+            'category_id' => 'nullable',
+            'product_service' => 'nullable|string|max:255',
+            'business_type' => 'nullable|string|max:255',
             'office_address' => 'nullable|string|max:500',
+            'education' => 'nullable|string|max:255',
+            'occupation' => 'nullable|string|max:255',
             'date_of_birth' => 'nullable|date',
             'anniversary_date' => 'nullable|date',
             'image' => 'nullable|image|mimes:jpeg,png,jpg,gif|max:2048',
@@ -126,6 +134,44 @@ class CustomerController extends Controller
             // FIX 3: Fixed folder path string structure to include missing slashes
             $background_image->move(public_path('uploads/customer_backgrounds'), $imageName);
             $validatedData['background_image'] = 'uploads/customer_backgrounds/' . $imageName;
+        }
+
+        // Handle custom category
+        if ($request->filled('product_service')) {
+            $category = Category::firstOrCreate(['name' => $request->product_service]);
+            $validatedData['category_id'] = $category->id;
+            $validatedData['product_service'] = $category->name;
+        } elseif ($request->filled('category_id') && !is_numeric($request->category_id)) {
+            $category = Category::firstOrCreate(['name' => $request->category_id]);
+            $validatedData['category_id'] = $category->id;
+            $validatedData['product_service'] = $category->name;
+        } elseif ($request->filled('category_id')) {
+            $category = Category::find($request->category_id);
+            if ($category) {
+                $validatedData['product_service'] = $category->name;
+            }
+        }
+
+        // Handle custom subcategory
+        if ($request->filled('business_type')) {
+            $subcategory = SubCategory::firstOrCreate([
+                'name' => $request->business_type,
+                'category_id' => $validatedData['category_id'] ?? $customer->category_id
+            ]);
+            $validatedData['subcategory_id'] = $subcategory->id;
+            $validatedData['business_type'] = $subcategory->name;
+        } elseif ($request->filled('subcategory_id') && !is_numeric($request->subcategory_id)) {
+            $subcategory = SubCategory::firstOrCreate([
+                'name' => $request->subcategory_id,
+                'category_id' => $validatedData['category_id'] ?? $customer->category_id
+            ]);
+            $validatedData['subcategory_id'] = $subcategory->id;
+            $validatedData['business_type'] = $subcategory->name;
+        } elseif ($request->filled('subcategory_id')) {
+            $subcategory = SubCategory::find($request->subcategory_id);
+            if ($subcategory) {
+                $validatedData['business_type'] = $subcategory->name;
+            }
         }
 
         $customer->update($validatedData);
@@ -404,7 +450,6 @@ class CustomerController extends Controller
         $query = Customer::select('state')
             ->selectRaw('count(*) as total_customers')
             ->where('admin_id', $customer->admin_id)
-            ->where('id', '!=', $customer->id)
             ->whereNotNull('state')
             ->where('state', '!=', '');
 
@@ -438,7 +483,6 @@ class CustomerController extends Controller
         $query = Customer::select('city')
             ->selectRaw('count(*) as total_customers')
             ->where('admin_id', $customer->admin_id)
-            ->where('id', '!=', $customer->id)
             ->whereNotNull('city')
             ->where('city', '!=', '');
 
@@ -577,12 +621,24 @@ class CustomerController extends Controller
             ], 400);
         }
 
-        // 2. Get search parameter
+        // 2. Get search parameters
         $search = $request->query('search');
+        $state = $request->query('state');
+        $city = $request->query('city');
 
         // 3. Base Query to Eager Load relations
         $query = Customer::with(['village', 'familyMembers'])
             ->where('admin_id', $customer->admin_id);
+
+        // Filter by state
+        if ($state) {
+            $query->where('state', $state);
+        }
+
+        // Filter by city
+        if ($city) {
+            $query->where('city', $city);
+        }
 
         // 4. Apply search filter
         if ($search) {
@@ -594,7 +650,9 @@ class CustomerController extends Controller
                     ->orWhere('business_name', 'LIKE', '%' . $search . '%')
                     ->orWhere('business_type', 'LIKE', '%' . $search . '%')
                     ->orWhere('gotra', 'LIKE', '%' . $search . '%')
-                    ->orWhere('father_name', 'LIKE', '%' . $search . '%');
+                    ->orWhere('father_name', 'LIKE', '%' . $search . '%')
+                    ->orWhere('city', 'LIKE', '%' . $search . '%')
+                    ->orWhere('state', 'LIKE', '%' . $search . '%');
             });
         }
 
@@ -687,7 +745,7 @@ class CustomerController extends Controller
         // Get the specific customer from the same admin
         $targetCustomer = Customer::with('village')
             ->where('id', $id)
-            ->where('admin_id', $customer->admin_id)
+
             ->first();
 
         // Check if customer exists and belongs to the same admin
@@ -828,7 +886,7 @@ class CustomerController extends Controller
         $customer = Auth::guard('sanctum')->user();
 
         // 1. Get active events with your custom customer RSVP
-        $events = Event::where('admin_id', $customer->admin_id)
+        $events = Event::query()
             ->where('status', 'active')
             ->with(['rsvps' => function ($query) use ($customer) {
                 $query->where('customer_id', $customer->id);
@@ -837,7 +895,7 @@ class CustomerController extends Controller
             ->get();
 
         // 2. Identify newly added items unseen by this user
-        $unseenIds = Event::where('admin_id', $customer->admin_id)
+        $unseenIds = Event::query()
             ->where('status', 'active')
             ->whereDoesntHave('viewers', function ($q) use ($customer) {
                 $q->where('user_id', $customer->id);
@@ -877,6 +935,33 @@ class CustomerController extends Controller
                 $eventArray['rsvp_note'] = $rsvp['note'] ?? null;
                 $eventArray['adults_count'] = $rsvp['adults_count'] ?? null;
                 $eventArray['children_count'] = $rsvp['children_count'] ?? null;
+            }
+
+            $isPastDeadline = \Carbon\Carbon::now()->startOfDay() > \Carbon\Carbon::parse($event->posted_date)->startOfDay();
+
+            $eventArray['can_edit_rsvp'] = !$isPastDeadline;
+
+            if ($eventArray['can_edit_rsvp']) {
+                $eventArray['event_timeline_status'] = null;
+            } else {
+                if ($event->date) {
+                    if (\Carbon\Carbon::now()->startOfDay() > \Carbon\Carbon::parse($event->date)->startOfDay()) {
+                        $eventArray['event_timeline_status'] = 'Event end date has passed';
+                    } elseif (\Carbon\Carbon::now()->isSameDay($event->date)) {
+                        $eventArray['event_timeline_status'] = 'ongoing';
+                    } else {
+                        $eventArray['event_timeline_status'] = 'upcoming';
+                    }
+                } else {
+                    // Fallback to old behavior if date is null
+                    if ($isPastDeadline) {
+                        $eventArray['event_timeline_status'] = 'Event end date has passed';
+                    } elseif (\Carbon\Carbon::now()->isSameDay($event->posted_date)) {
+                        $eventArray['event_timeline_status'] = 'ongoing';
+                    } else {
+                        $eventArray['event_timeline_status'] = 'upcoming';
+                    }
+                }
             }
 
             unset($eventArray['rsvps']);
@@ -1030,108 +1115,135 @@ class CustomerController extends Controller
     {
         $customer = Auth::guard('sanctum')->user();
 
-        // 1. Fetch active committee members for this admin
-        $committeeMembers = CommitteePerson::where('admin_id', $customer->admin_id)
+        // 1. Get active committee members ordered by sort_order
+        $committeeMembers = CommitteePerson::query()
             ->where('status', 'active')
-            ->orderBy('state', 'asc')
             ->orderBy('sort_order', 'asc')
             ->get();
 
-        // Helper to calculate exact priority based on database `post_name` values
-        $getPriority = function ($postName) {
-            $clean = strtolower(trim($postName ?? ''));
+        // 2. Identify newly added items unseen by this user
+        $unseenIds = CommitteePerson::query()
+            ->where('status', 'active')
+            ->whereDoesntHave('viewers', function ($q) use ($customer) {
+                $q->where('user_id', $customer->id);
+            })
+            ->pluck('id')
+            ->toArray();
 
-            if (empty($clean)) {
-                return 999;
+        $newItemsCount = count($unseenIds);
+
+        // 3. Force insert to pivot table immediately
+        if ($newItemsCount > 0) {
+            $insertData = [];
+            foreach ($unseenIds as $id) {
+                $insertData[] = [
+                    'user_id' => $customer->id,
+                    'committee_person_id' => $id,
+                    'created_at' => Carbon::now(),
+                    'updated_at' => Carbon::now(),
+                ];
             }
+            DB::table('committee_views')->insertOrIgnore($insertData);
+        }
 
-            // 1. President
-            if ($clean === 'president' || (str_contains($clean, 'presid') && !str_contains($clean, 'vice'))) {
-                return 1;
-            }
+        // 4. Pre-fetch matching customers to prevent N+1 performance issues
+        $phones = $committeeMembers->pluck('phone')->filter()->unique();
+        $customers = Customer::with(['village', 'familyMembers', 'category', 'subcategory'])
+            ->whereIn('mobile', $phones)
+            ->get()
+            ->keyBy('mobile');
 
-            // 2. Vice President
-            if (str_contains($clean, 'vice')) {
-                return 2;
-            }
-
-            // 3. Secretary
-            if ($clean === 'secretary' || (str_contains($clean, 'secr') && !str_contains($clean, 'joint') && !str_contains($clean, 'join') && !str_contains($clean, 'jt'))) {
-                return 3;
-            }
-
-            // 4. Joint Secretary
-            if (str_contains($clean, 'joint secretary') || str_contains($clean, 'join') || str_contains($clean, 'jt secretary')) {
-                return 4;
-            }
-
-            // 5. Treasurer
-            if ($clean === 'treasurer' || ($clean === 'treasure') || (str_contains($clean, 'treas') && !str_contains($clean, 'joint') && !str_contains($clean, 'join') && !str_contains($clean, 'jt'))) {
-                return 5;
-            }
-
-            // 6. Joint Treasurer
-            if (str_contains($clean, 'joint treasurer') || str_contains($clean, 'joint treasure') || str_contains($clean, 'jt treasurer')) {
-                return 6;
-            }
-
-            // 7. Digital / Digital Team
-            if (str_contains($clean, 'digital')) {
-                return 7;
-            }
-
-            // 8. Team / Committee
-            if (str_contains($clean, 'team') || str_contains($clean, 'committee') || str_contains($clean, 'member')) {
-                return 8;
-            }
-
-            // 9. Advisory / Advisor
-            if (str_contains($clean, 'advisor') || str_contains($clean, 'advisory')) {
-                return 9;
-            }
-
-            return 999;
-        };
-
-        // 2. Map through items to format image URLs and assign dynamic priority
-        $formattedMembers = $committeeMembers->map(function ($member) use ($getPriority) {
+        // 5. Map and flatten committee member data alongside all customer details
+        $data = $committeeMembers->map(function ($member) use ($customers) {
             $memberArray = $member->toArray();
+            $customerData = $member->phone ? $customers->get($member->phone) : null;
 
-            // Format full image URL safely
-            if ($member->image_path) {
-                $memberArray['image_path'] = (strpos($member->image_path, 'uploads/') === 0 || strpos($member->image_path, 'http') === 0)
-                    ? $member->image_path
-                    : url('storage/' . $member->image_path);
+            // If a customer match is found, merge all their attributes into the main array
+            if ($customerData) {
+                $customerArray = $customerData->toArray();
+
+                // Format URLs for main customer images/files
+                if (!empty($customerArray['image'])) {
+                    $customerArray['image'] = (strpos($customerArray['image'], 'uploads/') === 0)
+                        ? url($customerArray['image'])
+                        : url('storage/' . $customerArray['image']);
+                }
+                if (!empty($customerArray['background_image'])) {
+                    $customerArray['background_image'] = (strpos($customerArray['background_image'], 'uploads/') === 0)
+                        ? url($customerArray['background_image'])
+                        : url('storage/' . $customerArray['background_image']);
+                }
+                if (!empty($customerArray['pdf'])) {
+                    $customerArray['pdf'] = (strpos($customerArray['pdf'], 'uploads/') === 0)
+                        ? url($customerArray['pdf'])
+                        : url('storage/' . $customerArray['pdf']);
+                }
+
+                // Format URLs for family members images and pdfs
+                if (!empty($customerArray['family_members'])) {
+                    foreach ($customerArray['family_members'] as &$familyMember) {
+                        if (!empty($familyMember['image'])) {
+                            $familyMember['image'] = (strpos($familyMember['image'], 'uploads/') === 0)
+                                ? url($familyMember['image'])
+                                : url('storage/' . $familyMember['image']);
+                        }
+                        if (!empty($familyMember['pdf'])) {
+                            $familyMember['pdf'] = (strpos($familyMember['pdf'], 'uploads/') === 0)
+                                ? url($familyMember['pdf'])
+                                : url('storage/' . $familyMember['pdf']);
+                        }
+                    }
+                }
+
+                // Merge all customer fields directly into the main committee member array
+                // (Unset ID from customer to prevent overwriting committee person's ID)
+                unset($customerArray['id']);
+                $memberArray = array_merge($memberArray, $customerArray);
+            }
+
+            // Determine final image_path / image (Prioritize customer profile image over committee image)
+            $imageToUse = null;
+            if ($customerData && !empty($customerData->image)) {
+                $imageToUse = $customerData->image;
+            } elseif (!empty($member->image_path)) {
+                $imageToUse = $member->image_path;
+            }
+
+            if ($imageToUse) {
+                $formattedImage = (strpos($imageToUse, 'uploads/') === 0)
+                    ? url($imageToUse)
+                    : url('storage/' . $imageToUse);
+
+                $memberArray['image_path'] = $formattedImage;
+                $memberArray['image'] = $formattedImage;
             } else {
                 $memberArray['image_path'] = null;
+                $memberArray['image'] = null;
             }
 
-            // Maintain the 'image' alias compatibility
-            $memberArray['image'] = $memberArray['image_path'];
+            // Determine final PDF
+            $pdfToUse = null;
+            if ($customerData && !empty($customerData->pdf)) {
+                $pdfToUse = $customerData->pdf;
+            } elseif (!empty($member->pdf)) {
+                $pdfToUse = $member->pdf;
+            }
 
-            // Grouping key
-            $memberArray['group_state'] = $member->state ?: 'National';
-
-            // Calculate sorting priority from post_name
-            $memberArray['_priority'] = $getPriority($member->post_name);
+            if ($pdfToUse) {
+                $memberArray['pdf'] = (strpos($pdfToUse, 'uploads/') === 0)
+                    ? url($pdfToUse)
+                    : url('storage/' . $pdfToUse);
+            } else {
+                $memberArray['pdf'] = null;
+            }
 
             return $memberArray;
         });
 
-        // 3. Group state-wise and apply sorting
-        $groupedData = $formattedMembers->groupBy('group_state')->map(function ($stateMembers) {
-            return $stateMembers->sortBy([
-                ['_priority', 'asc'],
-                ['sort_order', 'asc']
-            ])->values()->map(function ($item) {
-                unset($item['_priority']); // Hide helper priority field from API response
-                return $item;
-            })->all();
-        });
-
         return response()->json([
             'status' => 'success',
-            'data' => $groupedData
+            'new_items_count' => $newItemsCount,
+            'data' => $data
         ]);
     }
 
@@ -1320,10 +1432,13 @@ class CustomerController extends Controller
         // Get all family members for the customer
         $familyMembers = $customer->familyMembers()->get();
 
-        // Add full image URL to each member
+        // Add full image and PDF URLs to each member
         $familyMembers->transform(function ($member) {
             if ($member->image) {
                 $member->image = url($member->image);
+            }
+            if ($member->pdf) {
+                $member->pdf = url($member->pdf);
             }
             return $member;
         });
@@ -1331,6 +1446,26 @@ class CustomerController extends Controller
         return response()->json([
             'status' => 'success',
             'data' => $familyMembers
+        ]);
+    }
+
+    /**
+     * Display a list of family members biolinks for the customer
+     */
+    public function listFamilyMemberBioLinks(Request $request)
+    {
+        $customer = Auth::guard('sanctum')->user();
+
+        // Get family members that have a biolink set, selecting id, name, and biolink
+        $bioLinks = $customer->familyMembers()
+            ->whereNotNull('biolink')
+            ->where('biolink', '!=', '')
+            ->select('id', 'name', 'biolink')
+            ->get();
+
+        return response()->json([
+            'status' => 'success',
+            'data' => $bioLinks
         ]);
     }
 
@@ -1352,9 +1487,12 @@ class CustomerController extends Controller
             ], 404);
         }
 
-        // Add full image URL
+        // Add full image and PDF URLs
         if ($familyMember->image) {
             $familyMember->image = url($familyMember->image);
+        }
+        if ($familyMember->pdf) {
+            $familyMember->pdf = url($familyMember->pdf);
         }
 
         return response()->json([
@@ -1386,8 +1524,12 @@ class CustomerController extends Controller
             'notes' => 'nullable|string',
             'matrimony' => 'nullable|in:1,0,true,false,"1","0"',
             'gender' => 'nullable|string|in:male,female,other',
+            'link' => 'nullable|string|max:255',
+            'pdf' => 'nullable|file|mimes:pdf|max:5048',
+            'biolink' => 'nullable|string|max:255',
         ]);
 
+        // Handle Image file
         if ($request->hasFile('image')) {
             $image = $request->file('image');
             $imageName = time() . '.' . $image->extension();
@@ -1395,14 +1537,30 @@ class CustomerController extends Controller
             $validatedData['image'] = 'uploads/family_members/' . $imageName;
         }
 
+        // Handle PDF file
+        if ($request->hasFile('pdf')) {
+            $pdf = $request->file('pdf');
+            $pdfName = time() . '.' . $pdf->extension();
+            $pdf->move(public_path('uploads/family_pdfs'), $pdfName);
+            $validatedData['pdf'] = 'uploads/family_pdfs/' . $pdfName;
+        }
+
+        // Set default biolink during creation
+        if (empty($validatedData['biolink'])) {
+            $validatedData['biolink'] = 'https://jainwed.com/biodata';
+        }
+
         $familyMember = new FamilyMember($validatedData);
         $familyMember->customer_id = $customer->id;
         $familyMember->save();
 
-        // Convert to array and add full image URL
+        // Convert to array and generate full URLs for the API response
         $responseData = $familyMember->toArray();
         if (!empty($familyMember->image)) {
             $responseData['image'] = url($familyMember->image);
+        }
+        if (!empty($familyMember->pdf)) {
+            $responseData['pdf'] = url($familyMember->pdf);
         }
 
         return response()->json([
@@ -1446,21 +1604,44 @@ class CustomerController extends Controller
             'notes' => 'nullable|string',
             'matrimony' => 'nullable|in:1,0,true,false,"1","0"',
             'gender' => 'nullable|string|in:male,female,other',
+            'link' => 'nullable|string|max:255',
+            'pdf' => 'nullable|file|mimes:pdf|max:5048',
+            'biolink' => 'nullable|string|max:255',
         ]);
 
+        // Handle Image file replacement
         if ($request->hasFile('image')) {
+            if ($familyMember->image && File::exists(public_path($familyMember->image))) {
+                File::delete(public_path($familyMember->image));
+            }
+
             $image = $request->file('image');
             $imageName = time() . '.' . $image->extension();
             $image->move(public_path('uploads/family_members'), $imageName);
             $validatedData['image'] = 'uploads/family_members/' . $imageName;
         }
 
+        // Handle PDF file replacement
+        if ($request->hasFile('pdf')) {
+            if ($familyMember->pdf && File::exists(public_path($familyMember->pdf))) {
+                File::delete(public_path($familyMember->pdf));
+            }
+
+            $pdf = $request->file('pdf');
+            $pdfName = time() . '.' . $pdf->extension();
+            $pdf->move(public_path('uploads/family_pdfs'), $pdfName);
+            $validatedData['pdf'] = 'uploads/family_pdfs/' . $pdfName;
+        }
+
         $familyMember->update($validatedData);
 
-        // Convert to array and add full image URL
+        // Convert to array and generate full URLs for the API response
         $responseData = $familyMember->toArray();
         if (!empty($familyMember->image)) {
             $responseData['image'] = url($familyMember->image);
+        }
+        if (!empty($familyMember->pdf)) {
+            $responseData['pdf'] = url($familyMember->pdf);
         }
 
         return response()->json([
@@ -1840,6 +2021,53 @@ class CustomerController extends Controller
         ]);
     }
 
+    public function getBusinessCategories(Request $request)
+    {
+        $customer = Auth::guard('sanctum')->user();
+
+        if (!$customer || !$customer->admin_id) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Invalid customer data.'
+            ], 400);
+        }
+
+        $stringCategories = Customer::whereNull('category_id')
+            ->whereNotNull('product_service')
+            ->where('product_service', '!=', '')
+            ->distinct()
+            ->pluck('product_service')
+            ->toArray();
+
+        $categoryIds = Customer::whereNotNull('category_id')
+            ->distinct()
+            ->pluck('category_id');
+
+        $dbCategories = Category::whereIn('id', $categoryIds)
+            ->pluck('name')
+            ->toArray();
+
+        $categories = collect(array_merge($stringCategories, $dbCategories))
+            ->filter(function($val) { return !empty($val); })
+            ->unique()
+            ->sort()
+            ->values()
+            ->map(function ($type, $index) {
+                return [
+                    'id' => $index + 1,
+                    'category_name' => $type
+                ];
+            });
+
+        return response()->json([
+            'status' => 'success',
+            'data' => $categories
+        ]);
+    }
+
+    /**
+     * Get customers filtered by business name
+     */
     public function getBusinessNames(Request $request)
     {
         $customer = Auth::guard('sanctum')->user();
@@ -1858,9 +2086,14 @@ class CustomerController extends Controller
             ->whereNotNull('business_name')
             ->where('business_name', '!=', '');
 
-        //  FIX: Filter by business_type column instead of business_name
+        //  FIX: Filter by product_service string OR category relationship name
         if ($category) {
-            $query->where('business_type', $category);
+            $query->where(function ($q) use ($category) {
+                $q->where('product_service', $category)
+                  ->orWhereHas('category', function ($cq) use ($category) {
+                      $cq->where('name', $category);
+                  });
+            });
         }
 
         if ($search) {
@@ -1870,10 +2103,21 @@ class CustomerController extends Controller
             });
         }
 
-        $businessNames = $query->selectRaw('business_name, business_type, product_service, office_address, mobile, name, COUNT(*) as count')
-            ->groupBy('business_name', 'business_type', 'product_service', 'office_address', 'mobile', 'name')
+        $businessNames = $query->selectRaw('business_name, business_type, product_service, office_address, mobile, name, ms_firm_name, category_id, subcategory_id, COUNT(*) as count')
+            ->groupBy('business_name', 'business_type', 'product_service', 'office_address', 'mobile', 'name', 'ms_firm_name', 'category_id', 'subcategory_id')
             ->orderBy('business_name', 'asc')
+            ->with(['category', 'subcategory'])
             ->get();
+
+        $businessNames->transform(function ($item) {
+            if ($item->category && $item->category->name) {
+                $item->product_service = $item->category->name;
+            }
+            if ($item->subcategory && $item->subcategory->name) {
+                $item->business_type = $item->subcategory->name;
+            }
+            return $item;
+        });
 
         return response()->json([
             'status' => 'success',
@@ -1895,20 +2139,30 @@ class CustomerController extends Controller
             ], 400);
         }
 
-        $businessName = $request->query('business_name');
+        $firmName = $request->query('ms_firm_name') ?? $request->query('business_name');
 
-        if (!$businessName) {
+        if (!$firmName) {
             return response()->json([
                 'status' => 'error',
-                'message' => 'Business name is required.'
+                'message' => 'Firm name is required.'
             ], 400);
         }
 
         $customers = Customer::query()
-            ->where('business_name', $businessName)
-            ->select('id', 'name', 'mobile', 'whatsapp', 'email', 'business_name', 'business_type', 'product_service', 'office_address', 'village_id')
-            ->with('village:id,name')
+            ->where('ms_firm_name', $firmName)
+            ->select('id', 'name', 'mobile', 'whatsapp', 'email', 'ms_firm_name', 'business_type', 'product_service', 'office_address', 'village_id', 'category_id', 'subcategory_id')
+            ->with(['village:id,name', 'category', 'subcategory'])
             ->get();
+
+        $customers->transform(function ($item) {
+            if ($item->category && $item->category->name) {
+                $item->product_service = $item->category->name;
+            }
+            if ($item->subcategory && $item->subcategory->name) {
+                $item->business_type = $item->subcategory->name;
+            }
+            return $item;
+        });
 
         return response()->json([
             'status' => 'success',
@@ -1917,7 +2171,7 @@ class CustomerController extends Controller
     }
 
     /**
-     * Get all customers grouped by business name
+     * Get all customers grouped by firm name
      */
     public function getCustomersByBusinessCategories(Request $request)
     {
@@ -1931,28 +2185,33 @@ class CustomerController extends Controller
         }
 
         $customers = Customer::query()
-            ->whereNotNull('business_name')
-            ->where('business_name', '!=', '')
-            ->select('id', 'name', 'mobile', 'whatsapp', 'email', 'business_name', 'business_type', 'product_service', 'office_address', 'village_id')
-            ->with('village:id,name')
+            ->whereNotNull('ms_firm_name')
+            ->where('ms_firm_name', '!=', '')
             ->get();
 
-        $result = $customers->groupBy('business_name')->map(function ($items, $key) {
+        $result = $customers->groupBy('ms_firm_name')->map(function ($items, $key) {
+            $firstItem = $items->first();
+
+            // FORCED ARRAY KEYS: Exclude 'business_name' completely from the mapping
             return [
-                'business_name' => $key,
-                'count' => $items->count(),
-                'customers' => $items
+                'ms_firm_name'     => (string) $key,
+                'business_type'    => $firstItem->business_type ?? null,
+                'product_service'  => $firstItem->product_service ?? null,
+                'office_address'   => $firstItem->office_address ?? null,
+                'mobile'           => $firstItem->mobile ?? null,
+                'name'             => $firstItem->name ?? null,
+                'count'            => $items->count(),
             ];
         })->values();
 
         return response()->json([
             'status' => 'success',
-            'data' => $result
+            'data'   => $result
         ]);
     }
 
     /**
-     * Get customers by specific business name (Route parameter)
+     * Get customers by specific firm name (Route parameter)
      */
     public function getBusinessByName(Request $request, $business)
     {
@@ -1966,47 +2225,14 @@ class CustomerController extends Controller
         }
 
         $customers = Customer::query()
-            ->where('business_name', $business)
-            ->select('id', 'name', 'mobile', 'whatsapp', 'email', 'business_name', 'business_type', 'product_service', 'office_address', 'village_id')
+            ->where('ms_firm_name', $business)
+            ->select('id', 'name', 'mobile', 'whatsapp', 'email', 'ms_firm_name', 'business_type', 'product_service', 'office_address', 'village_id')
             ->with('village:id,name')
             ->get();
 
         return response()->json([
             'status' => 'success',
             'data' => $customers
-        ]);
-    }
-
-
-
-    public function getBusinessCategories(Request $request)
-    {
-        $customer = Auth::guard('sanctum')->user();
-
-        if (!$customer || !$customer->admin_id) {
-            return response()->json([
-                'status' => 'error',
-                'message' => 'Invalid customer data.'
-            ], 400);
-        }
-
-        // Get unique business types and transform them into objects
-        $categories = Customer::query()
-            ->whereNotNull('business_type')
-            ->where('business_type', '!=', '')
-            ->distinct()
-            ->orderBy('business_type', 'asc')
-            ->pluck('business_type')
-            ->map(function ($type, $index) {
-                return [
-                    'id' => $index + 1, // Generate a temporary ID for the list
-                    'category_name' => $type
-                ];
-            });
-
-        return response()->json([
-            'status' => 'success',
-            'data' => $categories
         ]);
     }
 
@@ -2362,6 +2588,38 @@ class CustomerController extends Controller
         return response()->json([
             'status' => 'success',
             'message' => 'Your Profile has been deleted successfully.'
+        ]);
+    }
+
+    public function getCategories(Request $request)
+    {
+        $categories = \App\Models\Category::get(['id', 'name']);
+        return response()->json([
+            'status' => 'success',
+            'data' => $categories
+        ]);
+    }
+
+    public function getSubCategories(Request $request, $id)
+    {
+        $subcategories = \App\Models\SubCategory::where('category_id', $id)->get(['id', 'name'])->toArray();
+
+        // Add the common default subcategories matching the admin blade view
+        $commonSubs = [
+            ['id' => 'Retail', 'name' => 'Retail'],
+            ['id' => 'Manufacturer', 'name' => 'Manufacturer'],
+            ['id' => 'WholeSale', 'name' => 'WholeSale'],
+            ['id' => 'Services', 'name' => 'Services'],
+            ['id' => 'Professional', 'name' => 'Professional']
+        ];
+        
+        // Merge common subs, database subs, and append 'Others'
+        $allSubs = array_merge($commonSubs, $subcategories);
+        $allSubs[] = ['id' => 'Others', 'name' => 'Others'];
+
+        return response()->json([
+            'status' => 'success',
+            'data' => $allSubs
         ]);
     }
 }

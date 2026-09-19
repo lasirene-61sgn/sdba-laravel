@@ -26,6 +26,9 @@ class FamilyMember extends Model
         'notes',
         'matrimony', // New field for matrimony status
         'gender',    // New field for gender
+        'social_link',
+        'pdf',
+        'bio_link',
     ];
 
     protected $casts = [
@@ -33,13 +36,6 @@ class FamilyMember extends Model
         'anniversary_date' => 'date',
         'matrimony' => 'boolean', // Cast matrimony to boolean
     ];
-
-    /**
-     * All of the relationships to be touched.
-     *
-     * @var array
-     */
-    protected $touches = ['customer'];
 
     /**
      * Get the customer that owns this family member.

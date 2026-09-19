@@ -13,7 +13,6 @@ class CommitteePerson extends Model
         'admin_id',
         'name',
         'phone',
-        'state',
         'image_path',
         'post_name',
         'sort_order',

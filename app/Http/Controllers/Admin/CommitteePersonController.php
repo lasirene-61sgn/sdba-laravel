@@ -20,7 +20,7 @@ class CommitteePersonController extends Controller
         }
         
         $adminId = Auth::guard('admin')->id();
-        $people = CommitteePerson::where('admin_id', $adminId)->orderBy('sort_order', 'asc')->paginate(10);
+        $people = CommitteePerson::orderBy('sort_order', 'asc')->paginate(10);
         return view('admin.committee_person.index', compact('people'));
     }
 
@@ -50,7 +50,6 @@ class CommitteePersonController extends Controller
             'sort_order' => 'nullable|integer|min:0', // VALIDATION FOR SORT ORDER
             'image' => 'nullable|image|mimes:jpeg,png,jpg,gif|max:2048',
             'status' => 'required|in:active,inactive',
-            'state' => 'nullable|string',
         ]);
 
         $imagePath = null;
@@ -67,7 +66,6 @@ class CommitteePersonController extends Controller
             'sort_order' => $request->sort_order ?? 0, // STORING SORT ORDER
             'image_path' => $imagePath,
             'status' => $request->status,
-            'state' => $request->state,
         ]);
 
         return redirect()->route('admin.committee.index')->with('success', 'Committee member created successfully!');
@@ -104,7 +102,6 @@ class CommitteePersonController extends Controller
             'sort_order' => 'nullable|integer|min:0', // VALIDATION FOR SORT ORDER
             'image' => 'nullable|image|mimes:jpeg,png,jpg,gif|max:2048',
             'status' => 'required|in:active,inactive',
-            'state' => 'nullable|string',
         ]);
 
         $imagePath = $committee->image_path;
@@ -124,7 +121,6 @@ class CommitteePersonController extends Controller
             'sort_order' => $request->sort_order ?? 0,
             'image_path' => $imagePath,
             'status' => $request->status,
-            'state' => $request->state,
         ];
         
         // Only update password if provided

@@ -29,9 +29,23 @@
             </div>
             
             <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {{-- Event Date Field --}}
+                <div class="mb-5">
+                    <label for="date" class="block text-sm font-medium text-gray-700 mb-1">Event Date <span class="text-red-500">*</span></label>
+                    <input type="date" 
+                           class="form-input w-full px-4 py-2 border rounded-lg shadow-sm focus:ring-blue-500 focus:border-blue-500 @error('date') border-red-500 @enderror" 
+                           id="date" 
+                           name="date" 
+                           value="{{ old('date', $event->date ? $event->date->format('Y-m-d') : '') }}" 
+                           required>
+                    @error('date')
+                        <p class="mt-2 text-sm text-red-600">{{ $message }}</p>
+                    @enderror
+                </div>
+
                 {{-- Posted Date Field --}}
                 <div class="mb-5">
-                    <label for="posted_date" class="block text-sm font-medium text-gray-700 mb-1">Posted Date <span class="text-red-500">*</span></label>
+                    <label for="posted_date" class="block text-sm font-medium text-gray-700 mb-1">RSVP Deadline Date <span class="text-red-500">*</span></label>
                     <input type="date" 
                            class="form-input w-full px-4 py-2 border rounded-lg shadow-sm focus:ring-blue-500 focus:border-blue-500 @error('posted_date') border-red-500 @enderror" 
                            id="posted_date" 

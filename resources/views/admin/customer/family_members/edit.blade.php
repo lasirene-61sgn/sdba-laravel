@@ -65,6 +65,36 @@
                         <input type="text" name="native_place" class="form-control" value="{{ old('native_place', $familyMember->native_place) }}">
                     </div>
 
+                    <div class="col-md-6">
+                        <label class="form-label">Occupation</label>
+                        <input type="text" name="occupation" class="form-control" value="{{ old('occupation', $familyMember->occupation) }}">
+                    </div>
+
+                    <div class="col-md-6">
+                        <label class="form-label">Education</label>
+                        <input type="text" name="education" class="form-control" value="{{ old('education', $familyMember->education) }}">
+                    </div>
+
+                    <div class="col-md-12">
+                        <label class="form-label">Hobbies</label>
+                        <input type="text" name="hobbies" class="form-control" value="{{ old('hobbies', $familyMember->hobbies) }}">
+                    </div>
+
+                    <!-- Added Link Field -->
+                    <div class="col-md-12">
+                        <label class="form-label">Profile/Social Link</label>
+                        <input type="url" name="link" class="form-control @error('link') is-invalid @enderror" value="{{ old('link', $familyMember->link) }}" placeholder="https://example.com">
+                        @error('link') <div class="invalid-feedback">{{ $message }}</div> @enderror
+                    </div>
+
+                    <div class="col-md-12">
+                        <label class="form-label">Bio Data Link</label>
+                        <input type="url" name="biolink" class="form-control @error('biolink') is-invalid @enderror" value="{{ old('biolink', $familyMember->biolink) }}" placeholder="https://example.com">
+                        @error('biolink')
+                        <div class="invalid-feedback">{{ $message }}</div>
+                        @enderror
+                    </div>
+
                     <div class="col-md-12">
                         <label class="form-label d-block">Profile Image</label>
                         @if($familyMember->image)
@@ -76,6 +106,22 @@
                         <input type="file" name="image" class="form-control @error('image') is-invalid @enderror">
                         <div class="small text-muted mt-1">Leave blank to keep your current image.</div>
                         @error('image') <div class="invalid-feedback">{{ $message }}</div> @enderror
+                    </div>
+
+                    <!-- Added PDF Field -->
+                    <div class="col-md-12">
+                        <label class="form-label d-block">Attachment Document (PDF)</label>
+                        @if($familyMember->pdf)
+                            <div class="mb-2">
+                                <a href="{{ asset($familyMember->pdf) }}" target="_blank" class="btn btn-sm btn-outline-danger">
+                                    <i class="bi bi-file-pdf"></i> View Current PDF Document
+                                </a>
+                                <div class="small text-muted mt-1">Current path: {{ $familyMember->pdf }}</div>
+                            </div>
+                        @endif
+                        <input type="file" name="pdf" accept="application/pdf" class="form-control @error('pdf') is-invalid @enderror">
+                        <div class="small text-muted mt-1">Leave blank to keep your current PDF file.</div>
+                        @error('pdf') <div class="invalid-feedback">{{ $message }}</div> @enderror
                     </div>
 
                     <div class="col-md-12 my-2">
