@@ -869,8 +869,15 @@ class CustomerController extends Controller
         // Transform full URLs
         $galleryItemsWithUrls = $galleryItems->map(function ($item) {
             $itemArray = $item->toArray();
-            $itemArray['image_paths_url'] = $item->image_paths_url;
-            $itemArray['video_paths_url'] = $item->video_paths_url;
+            
+            // Overwrite original path arrays with the full URLs
+            $itemArray['image_paths'] = $item->image_paths_url;
+            $itemArray['video_paths'] = $item->video_paths_url;
+            
+            // Remove the temporary URL fields
+            unset($itemArray['image_paths_url']);
+            unset($itemArray['video_paths_url']);
+            
             return $itemArray;
         });
 
@@ -921,8 +928,14 @@ class CustomerController extends Controller
 
         $eventsWithUrls = $events->map(function ($event) {
             $eventArray = $event->toArray();
-            $eventArray['image_paths_url'] = $event->image_paths_url;
-            $eventArray['image_path_url'] = $event->image_path_url;
+            
+            // Overwrite original path arrays with the full URLs
+            $eventArray['image_paths'] = $event->image_paths_url;
+            $eventArray['image_path'] = $event->image_path_url;
+            
+            // Remove the temporary URL fields
+            unset($eventArray['image_paths_url']);
+            unset($eventArray['image_path_url']);
 
             $eventArray['rsvp_status'] = null;
             $eventArray['rsvp_note'] = null;
@@ -931,10 +944,19 @@ class CustomerController extends Controller
 
             if (isset($eventArray['rsvps']) && count($eventArray['rsvps']) > 0) {
                 $rsvp = $eventArray['rsvps'][0];
-                $eventArray['rsvp_status'] = $rsvp['status'] ?? null;
+                $status = $rsvp['status'] ?? null;
+                $adultsCount = $rsvp['adults_count'] ?? 0;
+                $childrenCount = $rsvp['children_count'] ?? 0;
+
+                // Handle legacy bad data where status is accepted but guest count is 0
+                if ($status === 'accepted' && ($adultsCount + $childrenCount) == 0) {
+                    $status = null; // Reset status so it doesn't show as accepted
+                }
+
+                $eventArray['rsvp_status'] = $status;
                 $eventArray['rsvp_note'] = $rsvp['note'] ?? null;
-                $eventArray['adults_count'] = $rsvp['adults_count'] ?? null;
-                $eventArray['children_count'] = $rsvp['children_count'] ?? null;
+                $eventArray['adults_count'] = $adultsCount;
+                $eventArray['children_count'] = $childrenCount;
             }
 
             $isPastDeadline = \Carbon\Carbon::now()->startOfDay() > \Carbon\Carbon::parse($event->posted_date)->startOfDay();
@@ -1030,16 +1052,21 @@ class CustomerController extends Controller
     {
         $customer = Auth::guard('sanctum')->user();
 
-        // Get banner items from the same admin
         $banners = Banner::where('admin_id', $customer->admin_id)
             ->where('status', 'active')
             ->orderBy('created_at', 'desc')
             ->get();
 
-        // Add full image URLs to each banner
+        // Transform each banner to include the full URL in 'image_path'
         $bannersWithUrls = $banners->map(function ($banner) {
             $bannerArray = $banner->toArray();
-            $bannerArray['image_path_url'] = $banner->image_path_url;
+
+            // Overwrite image_path with the full URL
+            $bannerArray['image_path'] = $banner->image_path_url;
+
+            // Optional: remove image_path_url if you no longer need both fields
+            unset($bannerArray['image_path_url']);
+
             return $bannerArray;
         });
 
@@ -1239,11 +1266,15 @@ class CustomerController extends Controller
 
             return $memberArray;
         });
+        // Group the data by state
+        $groupedData = $data->groupBy(function ($item) {
+            return !empty($item['state']) ? $item['state'] : 'National';
+        });
 
         return response()->json([
             'status' => 'success',
             'new_items_count' => $newItemsCount,
-            'data' => $data
+            'data' => $groupedData
         ]);
     }
 
@@ -1456,12 +1487,20 @@ class CustomerController extends Controller
     {
         $customer = Auth::guard('sanctum')->user();
 
-        // Get family members that have a biolink set, selecting id, name, and biolink
         $bioLinks = $customer->familyMembers()
-            ->whereNotNull('biolink')
-            ->where('biolink', '!=', '')
             ->select('id', 'name', 'biolink')
-            ->get();
+            ->get()
+            ->map(function ($member) {
+                // If biolink is empty, set to default
+                if (empty($member->biolink)) {
+                    $member->biolink = 'https://jainwed.com/biodata';
+                }
+                // Prepend the base URL if it's not already a full URL
+                elseif (!str_starts_with($member->biolink, 'http')) {
+                    $member->biolink = 'https://jainwed.com/biodata/' . ltrim($member->biolink, '/');
+                }
+                return $member;
+            });
 
         return response()->json([
             'status' => 'success',
@@ -1835,6 +1874,17 @@ class CustomerController extends Controller
                 $item->anniversary_date = null;
             }
 
+            // Format URLs for images and PDFs
+            if (!empty($item->image)) {
+                $item->image = (strpos($item->image, 'uploads/') === 0) ? url($item->image) : url('storage/' . $item->image);
+            }
+            if (!empty($item->background_image)) {
+                $item->background_image = (strpos($item->background_image, 'uploads/') === 0) ? url($item->background_image) : url('storage/' . $item->background_image);
+            }
+            if (!empty($item->pdf)) {
+                $item->pdf = (strpos($item->pdf, 'uploads/') === 0) ? url($item->pdf) : url('storage/' . $item->pdf);
+            }
+
             return $item;
         })
             // Filter out past birthdays for the current month
@@ -1944,6 +1994,17 @@ class CustomerController extends Controller
                 $item->date_of_birth = null;
             }
 
+            // Format URLs for images and PDFs
+            if (!empty($item->image)) {
+                $item->image = (strpos($item->image, 'uploads/') === 0) ? url($item->image) : url('storage/' . $item->image);
+            }
+            if (!empty($item->background_image)) {
+                $item->background_image = (strpos($item->background_image, 'uploads/') === 0) ? url($item->background_image) : url('storage/' . $item->background_image);
+            }
+            if (!empty($item->pdf)) {
+                $item->pdf = (strpos($item->pdf, 'uploads/') === 0) ? url($item->pdf) : url('storage/' . $item->pdf);
+            }
+
             return $item;
         })
             // Filter out past anniversaries for the current month
@@ -2048,7 +2109,9 @@ class CustomerController extends Controller
             ->toArray();
 
         $categories = collect(array_merge($stringCategories, $dbCategories))
-            ->filter(function($val) { return !empty($val); })
+            ->filter(function ($val) {
+                return !empty($val);
+            })
             ->unique()
             ->sort()
             ->values()
@@ -2090,9 +2153,9 @@ class CustomerController extends Controller
         if ($category) {
             $query->where(function ($q) use ($category) {
                 $q->where('product_service', $category)
-                  ->orWhereHas('category', function ($cq) use ($category) {
-                      $cq->where('name', $category);
-                  });
+                    ->orWhereHas('category', function ($cq) use ($category) {
+                        $cq->where('name', $category);
+                    });
             });
         }
 
@@ -2468,102 +2531,7 @@ class CustomerController extends Controller
     /**
      * Get customers with family members who have matrimony set to true
      */
-    public function getCustomersWithMatrimony(Request $request)
-    {
-        $customer = Auth::guard('sanctum')->user();
-
-        if (!$customer || !$customer->admin_id) {
-            return response()->json([
-                'status' => 'error',
-                'message' => 'Invalid customer data.'
-            ], 400);
-        }
-
-        // Get parameters
-        $search = $request->query('search');
-        $gender = $request->query('gender'); // New: 'male' or 'female'
-        $min_age = $request->query('min_age');
-        $max_age = $request->query('max_age');
-        $from_dob = $request->query('from_dob');
-        $to_dob = $request->query('to_dob');
-
-        // Start Query
-        $query = Customer::where('admin_id', $customer->admin_id)
-            ->whereHas('familyMembers', function ($q) use ($gender, $min_age, $max_age, $from_dob, $to_dob) {
-                $q->where('matrimony', true);
-
-                // Gender Filter
-                if ($gender) {
-                    $q->where('gender', $gender);
-                }
-
-                // Age Filter (calculated via DOB)
-                if ($min_age) {
-                    $q->where('date_of_birth', '<=', now()->subYears($min_age)->format('Y-m-d'));
-                }
-                if ($max_age) {
-                    $q->where('date_of_birth', '>=', now()->subYears($max_age + 1)->addDay()->format('Y-m-d'));
-                }
-
-                // DOB Range Filter
-                if ($from_dob) {
-                    $q->where('date_of_birth', '>=', $from_dob);
-                }
-                if ($to_dob) {
-                    $q->where('date_of_birth', '<=', $to_dob);
-                }
-            })
-            ->with(['familyMembers' => function ($q) use ($gender, $min_age, $max_age, $from_dob, $to_dob) {
-                $q->where('matrimony', true);
-                if ($gender) $q->where('gender', $gender);
-                if ($min_age) $q->where('date_of_birth', '<=', now()->subYears($min_age)->format('Y-m-d'));
-                if ($max_age) $q->where('date_of_birth', '>=', now()->subYears($max_age + 1)->addDay()->format('Y-m-d'));
-                if ($from_dob) $q->where('date_of_birth', '>=', $from_dob);
-                if ($to_dob) $q->where('date_of_birth', '<=', $to_dob);
-            }]);
-
-        // Apply global search
-        if ($search) {
-            $query->where(function ($q) use ($search) {
-                $q->where('name', 'LIKE', "%{$search}%")
-                    ->orWhere('mobile', 'LIKE', "%{$search}%")
-                    ->orWhereHas('familyMembers', function ($fm) use ($search) {
-                        $fm->where('name', 'LIKE', "%{$search}%");
-                    });
-            });
-        }
-
-        $customers = $query->get();
-
-        // Map results to your flat structure
-        $result = [];
-        foreach ($customers as $cust) {
-            foreach ($cust->familyMembers as $fm) {
-                $result[] = [
-                    'id' => $cust->id,
-                    'name' => $cust->name,
-                    'father_name' => $cust->father_name,
-                    'date_of_birth' => $cust->date_of_birth,
-                    'education' => $cust->education,
-                    'mobile' => $cust->mobile,
-                    'customer_id' => $cust->id,
-                    'family_member_name' => $fm->name,
-                    'family_member_gender' => $fm->gender, // Included gender
-                    'family_member_relationship' => $fm->relationship,
-                    'family_member_education' => $fm->education,
-                    'family_member_date_of_birth' => $fm->date_of_birth,
-                    'family_member_mobile' => $fm->mobile,
-                    'family_member_age' => $fm->date_of_birth ? \Carbon\Carbon::parse($fm->date_of_birth)->age : null,
-                    'matrimony' => $fm->matrimony,
-                ];
-            }
-        }
-
-        return response()->json([
-            'status' => 'success',
-            'data' => $result
-        ]);
-    }
+    
     public function deleteProfile(Request $request)
     {
         $customer = Auth::guard('sanctum')->user();
@@ -2612,7 +2580,7 @@ class CustomerController extends Controller
             ['id' => 'Services', 'name' => 'Services'],
             ['id' => 'Professional', 'name' => 'Professional']
         ];
-        
+
         // Merge common subs, database subs, and append 'Others'
         $allSubs = array_merge($commonSubs, $subcategories);
         $allSubs[] = ['id' => 'Others', 'name' => 'Others'];
@@ -2620,6 +2588,179 @@ class CustomerController extends Controller
         return response()->json([
             'status' => 'success',
             'data' => $allSubs
+        ]);
+    }
+
+    public function getCustomersWithMatrimony(Request $request)
+    {
+        $customer = Auth::guard('sanctum')->user();
+
+        if (!$customer || !$customer->admin_id) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Invalid customer data.'
+            ], 400);
+        }
+
+        // Get parameters
+        $search = $request->query('search');
+        $gender = $request->query('gender');
+        $min_age = $request->query('min_age');
+        $max_age = $request->query('max_age');
+        $from_dob = $request->query('from_dob');
+        $to_dob = $request->query('to_dob');
+
+        // Start Query - Eager load relationships
+        $query = Customer::with(['village'])
+
+            ->whereHas('familyMembers', function ($q) use ($gender, $min_age, $max_age, $from_dob, $to_dob) {
+                $q->where('matrimony', true);
+
+                // Gender Filter
+                if ($gender) {
+                    $q->where('gender', $gender);
+                }
+
+                // Age Filter (calculated via DOB)
+                if ($min_age) {
+                    $q->where('date_of_birth', '<=', now()->subYears($min_age)->format('Y-m-d'));
+                }
+                if ($max_age) {
+                    $q->where('date_of_birth', '>=', now()->subYears($max_age + 1)->addDay()->format('Y-m-d'));
+                }
+
+                // DOB Range Filter
+                if ($from_dob) {
+                    $q->where('date_of_birth', '>=', $from_dob);
+                }
+                if ($to_dob) {
+                    $q->where('date_of_birth', '<=', $to_dob);
+                }
+            });
+
+        // Apply global search
+        if ($search) {
+            $query->where(function ($q) use ($search) {
+                $q->where('name', 'LIKE', "%{$search}%")
+                    ->orWhere('mobile', 'LIKE', "%{$search}%")
+                    ->orWhereHas('familyMembers', function ($fm) use ($search) {
+                        $fm->where('name', 'LIKE', "%{$search}%");
+                    });
+            });
+        }
+
+        $customers = $query->get();
+
+        $result = [];
+        foreach ($customers as $cust) {
+
+            // 1. Format Customer Images
+            $customerImage = null;
+            if (!empty($cust->image)) {
+                $customerImage = (strpos($cust->image, 'http') === 0) ? $cust->image : (
+                    (strpos($cust->image, 'uploads/') === 0) ? url($cust->image) : url('storage/' . $cust->image)
+                );
+            }
+
+            $customerBackgroundImage = null;
+            if (!empty($cust->background_image)) {
+                $customerBackgroundImage = (strpos($cust->background_image, 'http') === 0) ? $cust->background_image : (
+                    (strpos($cust->background_image, 'uploads/') === 0) ? url($cust->background_image) : url('storage/' . $cust->background_image)
+                );
+            }
+
+            // Convert customer attributes to array format
+            $customerAttributes = $cust->attributesToArray();
+            $customerAttributes['village'] = $cust->village ? $cust->village->toArray() : null;
+            $customerAttributes['image'] = $customerImage;
+            $customerAttributes['background_image'] = $customerBackgroundImage;
+            $customerAttributes['customer_age'] = $cust->date_of_birth ? \Carbon\Carbon::parse($cust->date_of_birth)->age : null;
+
+            // 2. Fetch and format the complete list of ALL family members for this customer context
+            $allFamilyList = [];
+            foreach ($cust->familyMembers()->get() as $member) {
+                $mImage = null;
+                if (!empty($member->image)) {
+                    $mImage = (strpos($member->image, 'http') === 0) ? $member->image : (
+                        (strpos($member->image, 'uploads/') === 0) ? url($member->image) : url('storage/' . $member->image)
+                    );
+                }
+
+                $mPdf = null;
+                if (!empty($member->pdf)) {
+                    $mPdf = (strpos($member->pdf, 'http') === 0) ? $member->pdf : (
+                        (strpos($member->pdf, 'uploads/') === 0) ? url($member->pdf) : url('storage/' . $member->pdf)
+                    );
+                }
+
+                $memberArray = $member->attributesToArray();
+                $memberArray['image'] = $mImage;
+                $memberArray['pdf'] = $mPdf;
+                $memberArray['age'] = $member->date_of_birth ? \Carbon\Carbon::parse($member->date_of_birth)->age : null;
+
+                $allFamilyList[] = $memberArray;
+            }
+
+            // Nest the complete family list INSIDE the customer details block
+            $customerAttributes['all_family_members'] = $allFamilyList;
+
+            // 3. Filter the individual target matrimony candidates
+            $filteredTargetMembers = $cust->familyMembers()
+                ->where('matrimony', true)
+                ->where(function ($q) use ($gender, $min_age, $max_age, $from_dob, $to_dob) {
+                    if ($gender) $q->where('gender', $gender);
+                    if ($min_age) $q->where('date_of_birth', '<=', now()->subYears($min_age)->format('Y-m-d'));
+                    if ($max_age) $q->where('date_of_birth', '>=', now()->subYears($max_age + 1)->addDay()->format('Y-m-d'));
+                    if ($from_dob) $q->where('date_of_birth', '>=', $from_dob);
+                    if ($to_dob) $q->where('date_of_birth', '<=', $to_dob);
+                })->get();
+
+            foreach ($filteredTargetMembers as $fm) {
+
+                // Format Matrimony Target Profile Image
+                $familyMemberImage = null;
+                if (!empty($fm->image)) {
+                    $familyMemberImage = (strpos($fm->image, 'http') === 0) ? $fm->image : (
+                        (strpos($fm->image, 'uploads/') === 0) ? url($fm->image) : url('storage/' . $fm->image)
+                    );
+                }
+
+                // Format Matrimony Target Background Image
+                $familyMemberBackgroundImage = null;
+                if (!empty($fm->background_image)) {
+                    $familyMemberBackgroundImage = (strpos($fm->background_image, 'http') === 0) ? $fm->background_image : (
+                        (strpos($fm->background_image, 'uploads/') === 0) ? url($fm->background_image) : url('storage/' . $fm->background_image)
+                    );
+                }
+
+                // Format Matrimony Target PDF Document URL
+                $familyMemberPdf = null;
+                if (!empty($fm->pdf)) {
+                    $familyMemberPdf = (strpos($fm->pdf, 'http') === 0) ? $fm->pdf : (
+                        (strpos($fm->pdf, 'uploads/') === 0) ? url($fm->pdf) : url('storage/' . $fm->pdf)
+                    );
+                }
+
+                // Convert filtered family member attributes to array format
+                $familyMemberAttributes = $fm->attributesToArray();
+
+                // Override values with finalized Absolute URLs
+                $familyMemberAttributes['image'] = $familyMemberImage;
+                $familyMemberAttributes['background_image'] = $familyMemberBackgroundImage;
+                $familyMemberAttributes['pdf'] = $familyMemberPdf;
+                $familyMemberAttributes['family_member_age'] = $fm->date_of_birth ? \Carbon\Carbon::parse($fm->date_of_birth)->age : null;
+
+                // Final Deep Structured Dataset matching your required JSON blueprint
+                $result[] = [
+                    'family_member_details' => $familyMemberAttributes,
+                    'customer_details'      => $customerAttributes
+                ];
+            }
+        }
+
+        return response()->json([
+            'status' => 'success',
+            'data' => $result
         ]);
     }
 }

@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Casts\Attribute;
 
 class FamilyMember extends Model
 {
@@ -43,5 +44,13 @@ class FamilyMember extends Model
     public function customer()
     {
         return $this->belongsTo(Customer::class);
+    }
+
+
+    protected function biolink(): Attribute
+    {
+        return Attribute::make(
+            get: fn($value) => $value ? 'https://jainwed.com/biodata/' . ltrim($value, '/') : null,
+        );
     }
 }

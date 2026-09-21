@@ -33,10 +33,10 @@
             </a>
             
             <div class="flex space-x-3 mt-2 sm:mt-0">
-                <button id="bulk-delete-btn" class="inline-flex items-center justify-center space-x-2 bg-red-500 hover:bg-red-600 text-white font-semibold py-2 px-4 rounded-lg shadow-md transition duration-200 text-sm disabled:opacity-50" disabled>
+                <!-- <button id="bulk-delete-btn" class="inline-flex items-center justify-center space-x-2 bg-red-500 hover:bg-red-600 text-white font-semibold py-2 px-4 rounded-lg shadow-md transition duration-200 text-sm disabled:opacity-50" disabled>
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
                     <span>Bulk Delete</span>
-                </button>
+                </button> -->
                 <button id="bulk-print-btn" class="inline-flex items-center justify-center space-x-2 bg-blue-400 hover:bg-blue-500 text-white font-semibold py-2 px-4 rounded-lg shadow-md transition duration-200 text-sm disabled:opacity-50" disabled>
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6m-3-3v3" /></svg>
                     <span>Bulk Print</span>
@@ -45,10 +45,7 @@
         </div>
 
         {{-- Table Content --}}
-        <form id="bulk-delete-form" action="#" method="POST">
-            @csrf
-            @method('DELETE')
-            <div class="overflow-x-auto">
+        <div class="overflow-x-auto">
                 <table class="min-w-full divide-y divide-gray-200">
                     <thead class="bg-gray-50 hidden md:table-header-group">
                         <tr>
@@ -70,7 +67,7 @@
                         <tr class="md:hidden block border-b border-gray-200 last:border-b-0">
                             <td class="p-4 block">
                                 <div class="flex items-start space-x-3">
-                                    <input type="checkbox" name="ids[]" value="{{ $item->id }}" class="item-checkbox mt-1 rounded border-gray-300 text-blue-600 shadow-sm focus:border-blue-300 focus:ring focus:ring-blue-200 focus:ring-opacity-50">
+                                    <input type="checkbox" name="ids[]" value="{{ $item->id }}" form="bulk-delete-form" class="item-checkbox mt-1 rounded border-gray-300 text-blue-600 shadow-sm focus:border-blue-300 focus:ring focus:ring-blue-200 focus:ring-opacity-50">
                                     
                                     {{-- Image & Title --}}
                                     <div class="flex-shrink-0">
@@ -120,7 +117,7 @@
                         {{-- Desktop View: Table Row --}}
                         <tr class="hover:bg-gray-50 hidden md:table-row">
                             <td class="px-6 py-4 whitespace-nowrap">
-                                <input type="checkbox" name="ids[]" value="{{ $item->id }}" class="item-checkbox rounded border-gray-300 text-blue-600 shadow-sm focus:border-blue-300 focus:ring focus:ring-blue-200 focus:ring-opacity-50">
+                                <input type="checkbox" name="ids[]" value="{{ $item->id }}" form="bulk-delete-form" class="item-checkbox rounded border-gray-300 text-blue-600 shadow-sm focus:border-blue-300 focus:ring focus:ring-blue-200 focus:ring-opacity-50">
                             </td>
                             <td class="px-6 py-4 whitespace-nowrap">
                                 @if($item->image_paths)
@@ -192,6 +189,10 @@
                     </tbody>
                 </table>
             </div>
+
+        <form id="bulk-delete-form" action="#" method="POST" class="hidden">
+            @csrf
+            @method('DELETE')
         </form>
     </div>
     
@@ -214,8 +215,8 @@
             const checkedBoxes = document.querySelectorAll('.item-checkbox:checked');
             const hasChecked = checkedBoxes.length > 0;
             
-            bulkDeleteBtn.disabled = !hasChecked;
-            bulkPrintBtn.disabled = !hasChecked;
+            if (bulkDeleteBtn) bulkDeleteBtn.disabled = !hasChecked;
+            if (bulkPrintBtn) bulkPrintBtn.disabled = !hasChecked;
             
             if (hasChecked) {
                 bulkDeleteForm.action = "{{ route('admin.gallery.bulk-delete') }}";
@@ -236,20 +237,23 @@
             checkbox.addEventListener('change', toggleBulkButtons);
         });
 
-        bulkDeleteBtn.addEventListener('click', function() {
-            if (confirm('Are you sure you want to delete the selected items? This action cannot be undone.')) {
-                bulkDeleteForm.submit();
-            }
-        });
+        if (bulkDeleteBtn) {
+            bulkDeleteBtn.addEventListener('click', function() {
+                if (confirm('Are you sure you want to delete the selected items? This action cannot be undone.')) {
+                    bulkDeleteForm.submit();
+                }
+            });
+        }
 
-        bulkPrintBtn.addEventListener('click', function() {
-            const printWindow = window.open('', '_blank');
-            printWindow.document.write('<html><head><title>Gallery Items Print</title>');
-            printWindow.document.write('<style>body { font-family: sans-serif; padding: 20px; } .item { border-bottom: 1px solid #eee; padding: 15px 0; } .item h3 { margin-top: 0; font-size: 1.2em; } .item img { max-width: 150px; height: 150px; object-fit: cover; margin-right: 10px; display: inline-block; border-radius: 4px; }</style>');
-            printWindow.document.write('</head><body>');
-            printWindow.document.write('<h1>Selected Gallery Items</h1>');
+        if (bulkPrintBtn) {
+            bulkPrintBtn.addEventListener('click', function() {
+                const printWindow = window.open('', '_blank');
+                printWindow.document.write('<html><head><title>Gallery Items Print</title>');
+                printWindow.document.write('<style>body { font-family: sans-serif; padding: 20px; } .item { border-bottom: 1px solid #eee; padding: 15px 0; } .item h3 { margin-top: 0; font-size: 1.2em; } .item img { max-width: 150px; height: 150px; object-fit: cover; margin-right: 10px; display: inline-block; border-radius: 4px; }</style>');
+                printWindow.document.write('</head><body>');
+                printWindow.document.write('<h1>Selected Gallery Items</h1>');
 
-            document.querySelectorAll('.item-checkbox:checked').forEach(cb => {
+                document.querySelectorAll('.item-checkbox:checked').forEach(cb => {
                 const row = cb.closest('tr');
                 // Check if it's the mobile stacked view or desktop view to find content
                 let title, imageContainer;

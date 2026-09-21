@@ -216,14 +216,14 @@ Route::prefix('admin')->middleware(['committee.member.auth'])->group(function ()
 
 
     // Explicitly add 'admin.' to the name chain so it matches your Blade files!
-Route::prefix('customer/{customer}/family')->name('admin.customer.family.')->group(function () {
-    Route::get('/', [CustomerController::class, 'indexFamilyMember'])->name('index');          // admin.customer.family.index
-    Route::get('/create', [CustomerController::class, 'createFamilyMember'])->name('create');  // admin.customer.family.create
-    Route::post('/', [CustomerController::class, 'storeFamilyMember'])->name('store');         // admin.customer.family.store
-    Route::get('/{familyMemberId}/edit', [CustomerController::class, 'editFamilyMember'])->name('edit'); // admin.customer.family.edit
-    Route::put('/{familyMemberId}', [CustomerController::class, 'updateFamilyMember'])->name('update');   // admin.customer.family.update
-    Route::delete('/{familyMemberId}', [CustomerController::class, 'deleteFamilyMember'])->name('destroy'); // admin.customer.family.destroy
-});
+    Route::prefix('customer/{customer}/family')->name('admin.customer.family.')->group(function () {
+        Route::get('/', [CustomerController::class, 'indexFamilyMember'])->name('index');          // admin.customer.family.index
+        Route::get('/create', [CustomerController::class, 'createFamilyMember'])->name('create');  // admin.customer.family.create
+        Route::post('/', [CustomerController::class, 'storeFamilyMember'])->name('store');         // admin.customer.family.store
+        Route::get('/{familyMemberId}/edit', [CustomerController::class, 'editFamilyMember'])->name('edit'); // admin.customer.family.edit
+        Route::put('/{familyMemberId}', [CustomerController::class, 'updateFamilyMember'])->name('update');   // admin.customer.family.update
+        Route::delete('/{familyMemberId}', [CustomerController::class, 'deleteFamilyMember'])->name('destroy'); // admin.customer.family.destroy
+    });
 
     //Bill Routes
     Route::resource('bills', BillController::class)->names('admin.bills');

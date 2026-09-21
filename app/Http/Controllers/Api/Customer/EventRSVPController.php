@@ -52,6 +52,16 @@ class EventRSVPController extends Controller
         
         $validatedData = $request->validate($rules);
         
+        if ($request->status === 'accepted') {
+            $totalCount = ($validatedData['adults_count'] ?? 0) + ($validatedData['children_count'] ?? 0);
+            if ($totalCount === 0) {
+                return response()->json([
+                    'status' => 'error',
+                    'message' => 'Total number of guests (adults + children) must be at least 1 when accepting an RSVP.'
+                ], 422);
+            }
+        }
+        
         // Create or update RSVP
         $rsvp = EventRSVP::updateOrCreate(
             [

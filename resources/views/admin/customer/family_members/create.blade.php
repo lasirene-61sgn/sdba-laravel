@@ -88,7 +88,7 @@
 
                     <div class="col-md-12">
                         <label class="form-label">Bio Data Link</label>
-                        <input type="url" name="biolink" class="form-control @error('biolink') is-invalid @enderror" value="{{ old('biolink', 'https://happywed.co.in') }}" placeholder="https://example.com">
+                        <input type="url" name="biolink" class="form-control @error('biolink') is-invalid @enderror" value="{{ old('biolink', 'https://jainwed.com/biodata') }}" placeholder="https://example.com">
                         @error('biolink')
                         <div class="invalid-feedback">{{ $message }}</div>
                         @enderror
