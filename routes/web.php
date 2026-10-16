@@ -238,6 +238,7 @@ Route::prefix('admin')->middleware(['committee.member.auth'])->group(function ()
     Route::resource('customers', CustomerController::class)->names('admin.customers');
 
     // Customer Plan Management Routes
+    Route::get('customer/export', [CustomerController::class, 'export'])->name('admin.customer.export');
     Route::resource('customer', CustomerController::class)->names('admin.customer');
     Route::resource('customer-plan', CustomerPlanController::class)->except(['show'])->names('admin.customer-plan')->parameters(['customer-plan' => 'customerPlan']);
     Route::get('/customer-plans/get-customer-details/{customerId}', [CustomerPlanController::class, 'getCustomerDetails'])->name('admin.customer-plans.get-customer-details');

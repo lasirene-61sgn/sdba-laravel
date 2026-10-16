@@ -131,6 +131,21 @@
                 </svg>
                 Bulk Upload
             </a>
+
+            {{-- Export Buttons --}}
+            <a href="{{ route('admin.customers.export', array_merge(request()->query(), ['format' => 'xlsx', 'all' => 1])) }}" class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-emerald-600 hover:bg-emerald-700 transition duration-150 ease-in-out shadow-sm" title="Export all customers with full details as Excel (.xlsx)">
+                <svg class="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                </svg>
+                Export Excel
+            </a>
+
+            <a href="{{ route('admin.customers.export', array_merge(request()->query(), ['format' => 'csv', 'all' => 1])) }}" class="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 transition duration-150 ease-in-out shadow-sm" title="Export all customers with full details as CSV (.csv)">
+                <svg class="w-4 h-4 mr-1.5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path>
+                </svg>
+                Export CSV
+            </a>
             
             <!-- <a href="{{ route('admin.customer.scan-create-form') }}" class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-purple-600 hover:bg-purple-700 transition duration-150 ease-in-out shadow-sm no-print">
                 <svg class="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -147,11 +162,17 @@
 
     {{-- Search Form --}}
     <div class="mb-6 no-print">
-        <form action="{{ route('admin.customer.index') }}" method="GET" class="flex gap-2">
+        <form action="{{ route('admin.customer.index') }}" method="GET" class="flex flex-wrap items-center gap-2">
             <input type="text" name="search" value="{{ request('search') }}" placeholder="Search by name, mobile, admin ID, or village..." class="w-full md:w-1/3 px-4 py-2 border rounded-lg shadow-sm focus:ring-indigo-500 focus:border-indigo-500">
             <button type="submit" class="px-4 py-2 bg-indigo-600 text-white rounded-lg shadow-sm hover:bg-indigo-700">Search</button>
             @if(request('search'))
                 <a href="{{ route('admin.customer.index') }}" class="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg shadow-sm hover:bg-gray-300">Clear</a>
+                <a href="{{ route('admin.customers.export', ['search' => request('search'), 'format' => 'xlsx']) }}" class="px-3 py-2 text-sm text-emerald-700 bg-emerald-50 border border-emerald-300 rounded-lg shadow-sm hover:bg-emerald-100 flex items-center" title="Export only search results to Excel">
+                    <svg class="w-4 h-4 mr-1 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                    </svg>
+                    Export Filtered (Excel)
+                </a>
             @endif
         </form>
     </div>

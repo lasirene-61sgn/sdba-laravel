@@ -13,6 +13,10 @@ use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Validator;
 use Laravel\Ai\Ai;
+use PhpOffice\PhpSpreadsheet\Spreadsheet;
+use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
+use PhpOffice\PhpSpreadsheet\Style\Fill;
+use PhpOffice\PhpSpreadsheet\Cell\Coordinate;
 
 class CustomerController extends Controller
 {
@@ -70,6 +74,325 @@ class CustomerController extends Controller
         $fieldPermissions = $this->getFieldPermissions();
 
         return view('admin.customer.index', compact('customers', 'fieldPermissions', 'allCustomers'));
+    }
+
+    /**
+     * Export all customers with fully detailed information.
+     * Supports both Excel (.xlsx with Customer & Family Member sheets) and CSV formats.
+     */
+    public function export(Request $request)
+    {
+        $search = $request->input('search');
+        $format = strtolower($request->input('format', $request->input('type', 'xlsx')));
+
+        $query = Customer::with(['village', 'category', 'subcategory', 'familyMembers'])
+            ->orderBy('id', 'asc');
+
+        // Apply search filter if present and not forced to export all
+        if (!empty($search) && !$request->boolean('all')) {
+            $searchClosure = function ($q) use ($search) {
+                $q->where('name', 'like', "%{$search}%")
+                  ->orWhere('mobile', 'like', "%{$search}%")
+                  ->orWhere('admin_customer_id', 'like', "%{$search}%")
+                  ->orWhereHas('village', function ($vq) use ($search) {
+                      $vq->where('name', 'like', "%{$search}%");
+                  });
+            };
+            $query->where($searchClosure);
+        }
+
+        $customers = $query->get();
+
+        $timestamp = date('Y-m-d_His');
+        $filename = "customers_full_details_{$timestamp}";
+
+        if ($format === 'csv') {
+            return $this->exportCustomersCsv($customers, $filename . '.csv');
+        }
+
+        return $this->exportCustomersExcel($customers, $filename . '.xlsx');
+    }
+
+    /**
+     * Helper to format dates safely.
+     */
+    private function formatExportDate($date, $format = 'Y-m-d')
+    {
+        if (empty($date)) {
+            return '';
+        }
+        if ($date instanceof \Carbon\CarbonInterface || $date instanceof \DateTimeInterface) {
+            return $date->format($format);
+        }
+        $timestamp = strtotime($date);
+        return $timestamp ? date($format, $timestamp) : (string)$date;
+    }
+
+    /**
+     * Build row array for a single customer.
+     */
+    private function buildCustomerExportRow($c)
+    {
+        $familySummary = [];
+        if ($c->relationLoaded('familyMembers') && $c->familyMembers) {
+            foreach ($c->familyMembers as $idx => $fm) {
+                $details = [];
+                if (!empty($fm->relationship)) $details[] = $fm->relationship;
+                if (!empty($fm->gender)) $details[] = ucfirst($fm->gender);
+                if (!empty($fm->mobile)) $details[] = 'Mob: ' . $fm->mobile;
+                if (!empty($fm->date_of_birth)) $details[] = 'DOB: ' . $this->formatExportDate($fm->date_of_birth);
+                if (!empty($fm->occupation)) $details[] = 'Occ: ' . $fm->occupation;
+                $familySummary[] = ($idx + 1) . '. ' . $fm->name . (!empty($details) ? ' (' . implode(', ', $details) . ')' : '');
+            }
+        }
+
+        $imageUrl = $c->image ? (strpos($c->image, 'uploads/') === 0 ? url($c->image) : url('storage/' . $c->image)) : '';
+        $bgImageUrl = $c->background_image ? (strpos($c->background_image, 'uploads/') === 0 ? url($c->background_image) : url('storage/' . $c->background_image)) : '';
+
+        return [
+            $c->admin_customer_id ?? $c->id,
+            $c->id,
+            $c->name ?? '',
+            $c->father_name ?? '',
+            $c->gotra ?? '',
+            $c->label_name ?? '',
+            ucfirst($c->gender ?? ''),
+            $c->age ?? '',
+            $this->formatExportDate($c->date_of_birth),
+            $this->formatExportDate($c->anniversary_date),
+            $c->mobile ? (string)$c->mobile : '',
+            $c->whatsapp ? (string)$c->whatsapp : '',
+            $c->email ?? '',
+            $c->blood_group ?? '',
+            $c->education ?? '',
+            $c->occupation ?? '',
+            $c->hobbies ?? '',
+            $c->native_place ?? '',
+            $c->village->name ?? '',
+            $c->area ?? '',
+            $c->dno ?? '',
+            $c->street_road ?? '',
+            $c->address2 ?? '',
+            $c->city ?? '',
+            $c->state ?? '',
+            $c->pincode ?? '',
+            $c->office_address ?? '',
+            $c->ms_firm_name ?? '',
+            $c->business_name ?? '',
+            $c->business_type ?? '',
+            $c->category->name ?? '',
+            $c->subcategory->name ?? '',
+            $c->product_service ?? '',
+            $imageUrl,
+            $bgImageUrl,
+            ucfirst($c->status ?? 'active'),
+            $c->familyMembers ? $c->familyMembers->count() : 0,
+            implode(' | ', $familySummary),
+            $this->formatExportDate($c->created_at, 'Y-m-d H:i:s'),
+            $this->formatExportDate($c->updated_at, 'Y-m-d H:i:s')
+        ];
+    }
+
+    /**
+     * Get Customer headers list.
+     */
+    private function getCustomerExportHeaders()
+    {
+        return [
+            'Admin Customer ID',
+            'System ID',
+            'Full Name',
+            'Father Name',
+            'Gotra',
+            'Label Name',
+            'Gender',
+            'Age',
+            'Date of Birth',
+            'Anniversary Date',
+            'Mobile',
+            'WhatsApp',
+            'Email',
+            'Blood Group',
+            'Education',
+            'Occupation',
+            'Hobbies',
+            'Native Place',
+            'Village',
+            'Area',
+            'Door / House No',
+            'Street / Road',
+            'Address Line 2',
+            'City',
+            'State',
+            'Pincode',
+            'Office Address',
+            'MS / Firm Name',
+            'Business Name',
+            'Business Type',
+            'Category',
+            'Sub Category',
+            'Product / Service',
+            'Profile Image URL',
+            'Background Image URL',
+            'Status',
+            'Family Members Count',
+            'Family Members Summary',
+            'Created At',
+            'Updated At'
+        ];
+    }
+
+    /**
+     * Export customers as Excel workbook with 2 sheets (Customers and Family Members).
+     */
+    private function exportCustomersExcel($customers, $filename)
+    {
+        $spreadsheet = new Spreadsheet();
+
+        // ---------------- Sheet 1: Customers ----------------
+        $sheet1 = $spreadsheet->getActiveSheet();
+        $sheet1->setTitle('Customers');
+
+        $headers1 = $this->getCustomerExportHeaders();
+        $sheet1->fromArray($headers1, null, 'A1');
+
+        $rowNum = 2;
+        $allFamilyRows = [];
+
+        foreach ($customers as $c) {
+            $row = $this->buildCustomerExportRow($c);
+            $sheet1->fromArray($row, null, "A{$rowNum}");
+            $rowNum++;
+
+            // Collect family members for Sheet 2
+            if ($c->relationLoaded('familyMembers') && $c->familyMembers) {
+                foreach ($c->familyMembers as $fm) {
+                    $fmImageUrl = $fm->image ? (strpos($fm->image, 'uploads/') === 0 ? url($fm->image) : url('storage/' . $fm->image)) : '';
+                    $fmPdfUrl = $fm->pdf ? (strpos($fm->pdf, 'uploads/') === 0 ? url($fm->pdf) : url('storage/' . $fm->pdf)) : '';
+
+                    $allFamilyRows[] = [
+                        $c->admin_customer_id ?? $c->id,
+                        $c->name ?? '',
+                        $fm->id,
+                        $fm->name ?? '',
+                        $fm->relationship ?? '',
+                        ucfirst($fm->gender ?? ''),
+                        $fm->mobile ? (string)$fm->mobile : '',
+                        $this->formatExportDate($fm->date_of_birth),
+                        $this->formatExportDate($fm->anniversary_date),
+                        $fm->gotra ?? '',
+                        $fm->occupation ?? '',
+                        $fm->education ?? '',
+                        $fm->blood_group ?? '',
+                        $fm->hobbies ?? '',
+                        $fm->native_place ?? '',
+                        $fm->matrimony ? 'Yes' : 'No',
+                        $fm->social_link ?? '',
+                        $fm->biolink ?? '',
+                        $fm->notes ?? '',
+                        $fmImageUrl,
+                        $fmPdfUrl,
+                        $this->formatExportDate($fm->created_at, 'Y-m-d H:i:s')
+                    ];
+                }
+            }
+        }
+
+        // Auto-fit columns and style header for Sheet 1
+        $highestCol1 = $sheet1->getHighestColumn();
+        $highestColIndex1 = Coordinate::columnIndexFromString($highestCol1);
+        for ($col = 1; $col <= $highestColIndex1; $col++) {
+            $sheet1->getColumnDimension(Coordinate::stringFromColumnIndex($col))->setAutoSize(true);
+        }
+        $sheet1->getStyle("A1:{$highestCol1}1")->getFont()->setBold(true);
+        $sheet1->getStyle("A1:{$highestCol1}1")->getFill()
+            ->setFillType(Fill::FILL_SOLID)
+            ->getStartColor()->setARGB('FFE0E7FF'); // Light Indigo
+
+        // ---------------- Sheet 2: Family Members ----------------
+        $sheet2 = $spreadsheet->createSheet();
+        $sheet2->setTitle('Family Members');
+
+        $headers2 = [
+            'Customer Admin ID',
+            'Customer Name',
+            'Family Member ID',
+            'Member Name',
+            'Relationship',
+            'Gender',
+            'Mobile',
+            'Date of Birth',
+            'Anniversary Date',
+            'Gotra',
+            'Occupation',
+            'Education',
+            'Blood Group',
+            'Hobbies',
+            'Native Place',
+            'Matrimony',
+            'Social Link',
+            'Bio Link',
+            'Notes',
+            'Image URL',
+            'PDF URL',
+            'Created At'
+        ];
+
+        $sheet2->fromArray($headers2, null, 'A1');
+        if (!empty($allFamilyRows)) {
+            $sheet2->fromArray($allFamilyRows, null, 'A2');
+        }
+
+        $highestCol2 = $sheet2->getHighestColumn();
+        $highestColIndex2 = Coordinate::columnIndexFromString($highestCol2);
+        for ($col = 1; $col <= $highestColIndex2; $col++) {
+            $sheet2->getColumnDimension(Coordinate::stringFromColumnIndex($col))->setAutoSize(true);
+        }
+        $sheet2->getStyle("A1:{$highestCol2}1")->getFont()->setBold(true);
+        $sheet2->getStyle("A1:{$highestCol2}1")->getFill()
+            ->setFillType(Fill::FILL_SOLID)
+            ->getStartColor()->setARGB('FFDCFCE7'); // Light Green
+
+        // Set active sheet to Customers
+        $spreadsheet->setActiveSheetIndex(0);
+
+        $writer = new Xlsx($spreadsheet);
+
+        return response()->streamDownload(function () use ($writer) {
+            $writer->save('php://output');
+        }, $filename, [
+            'Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            'Cache-Control' => 'max-age=0',
+        ]);
+    }
+
+    /**
+     * Export customers as CSV file with UTF-8 BOM.
+     */
+    private function exportCustomersCsv($customers, $filename)
+    {
+        $headers = [
+            'Content-Type' => 'text/csv; charset=UTF-8',
+            'Content-Disposition' => 'attachment; filename="' . $filename . '"',
+            'Pragma' => 'no-cache',
+            'Cache-Control' => 'must-revalidate, post-check=0, pre-check=0',
+            'Expires' => '0',
+        ];
+
+        $exportHeaders = $this->getCustomerExportHeaders();
+
+        return response()->stream(function () use ($customers, $exportHeaders) {
+            $handle = fopen('php://output', 'w');
+            // Write UTF-8 BOM for proper character encoding in Excel
+            fputs($handle, "\xEF\xBB\xBF");
+            fputcsv($handle, $exportHeaders);
+
+            foreach ($customers as $c) {
+                $row = $this->buildCustomerExportRow($c);
+                fputcsv($handle, $row);
+            }
+            fclose($handle);
+        }, 200, $headers);
     }
 
     /**
